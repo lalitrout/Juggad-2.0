@@ -1,0 +1,68 @@
+{
+  "users": [
+    {
+      "id": "user1",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "password": "password123",
+      "location": "New York, NY",
+      "skills": ["Web Development", "Graphic Design"],
+      "profilePicture": "https://via.placeholder.com/150",
+      "bio": "Freelancer with 5 years of experience in web development and design."
+    },
+    {
+      "id": "user2",
+      "name": "Jane Smith",
+      "email": "jane@example.com",
+      "password": "password123",
+      "location": "Los Angeles, CA",
+      "skills": ["Content Writing", "Editing"],
+      "profilePicture": "https://via.placeholder.com/150",
+      "bio": "Professional writer with a passion for creating engaging content."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task1",
+      "title": "Build a Landing Page",
+      "description": "Need a responsive landing page for my startup.",
+      "budget": 500,
+      "location": "Remote",
+      "deadline": "2025-08-15T12:00:00Z",
+      "tags": ["Web Development", "UI/UX"],
+      "postedBy": "user2",
+      "applicants": ["user1"],
+      "status": "open"
+    },
+    {
+      "id": "task2",
+      "title": "Write Blog Posts",
+      "description": "Looking for 5 blog posts on tech topics.",
+      "budget": 200,
+      "location": "Remote",
+      "deadline": "2025-08-20T12:00:00Z",
+      "tags": ["Content Writing", "SEO"],
+      "postedBy": "user1",
+      "applicants": [],
+      "status": "open"
+    }
+  ],
+  "chats": [
+    {
+      "id": "chat1",
+      "participants": ["user1", "user2"],
+      "messages": [
+        {
+          "sender": "user1",
+          "content": "Hi, I'm interested in your landing page task!",
+          "timestamp": "2025-07-27T10:00:00Z"
+        },
+        {
+          "sender": "user2",
+          "content": "Great! Can you share your portfolio?",
+          "timestamp": "2025-07-27T10:05:00Z"
+        }
+      ]
+    }
+  ]
+}
