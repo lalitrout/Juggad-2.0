@@ -1,9 +1,10 @@
 import { useState, useContext } from "react";
-import { ArrowLeft, FileText, MapPin , Tag, X } from "lucide-react";
+import { ArrowLeft, FileText, MapPin, Tag, X } from "lucide-react";
 import { FaRupeeSign } from "react-icons/fa";
 import Header from "../components/Header";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/Input";
+import Swal from "sweetalert2";
 
 import { db } from "../firebase"; // <-- your firebase.jsx
 import {
@@ -155,17 +156,17 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
     e.preventDefault();
 
     if (!user || !user.uid) {
-      alert("User not authenticated");
-      return;
-    }
-    const validationErrors = validateForm();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
+      await Swal.fire({
+        icon: "warning",
+        title: "Not Logged In",
+        text: "Please log in to post a task.",
+      });
       return;
     }
 
-    if (!user) {
-      alert("Please log in to post a task.");
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
       return;
     }
 
@@ -190,10 +191,23 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
       };
 
       await addDoc(collection(db, "tasks"), payload);
+
+      await Swal.fire({
+        icon: "success",
+        title: "Task Added!",
+        text: "Your task has been posted successfully.",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
       navigateTo("home");
     } catch (err) {
       console.error("Error posting task:", err);
-      alert("Failed to post task. Please try again.");
+      await Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: "Something went wrong while posting your task.",
+      });
     }
   };
 

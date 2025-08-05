@@ -1,5 +1,12 @@
 import React, { useState, useContext } from "react";
-import { ArrowLeft, User, UserCheck, Mail, HandHeart, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  User,
+  UserCheck,
+  Mail,
+  HandHeart,
+  Loader2,
+} from "lucide-react";
 import { AuthContext } from "../AuthContext";
 import Swal from "sweetalert2";
 
@@ -15,13 +22,46 @@ const AuthPage = ({ navigateTo }) => {
     signInWithGoogle,
     registerWithEmail,
     signInWithEmail,
-    authError,
   } = useContext(AuthContext);
 
   const toggleRole = (role) => {
     setSelectedRoles((prev) =>
       prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
     );
+  };
+
+  const showErrorAlert = (code) => {
+    let message = "Something went wrong. Please try again.";
+    switch (code) {
+      case "auth/user-not-found":
+        message = "No account found with this email. Please sign up first.";
+        break;
+      case "auth/wrong-password":
+        message = "Incorrect password. Please try again.";
+        break;
+      case "auth/email-already-in-use":
+        message = "This email is already in use. Try signing in instead.";
+        break;
+      case "auth/invalid-email":
+        message = "Invalid email address.";
+        break;
+      case "auth/weak-password":
+        message = "Password is too weak. Please use a stronger one.";
+        break;
+      case "auth/missing-password":
+        message = "Password is required.";
+        break;
+      default:
+        message = code;
+        break;
+    }
+
+    Swal.fire({
+      icon: "error",
+      title: "Authentication Error",
+      text: message,
+      confirmButtonText: "OK",
+    });
   };
 
   const handleGoogleAuth = async () => {
@@ -38,12 +78,13 @@ const AuthPage = ({ navigateTo }) => {
           : "Logged in successfully.",
         timer: 3000,
         showConfirmButton: false,
-        toast: true,
-        position: "top-end",
+        // toast: true,
+        position: "center",
       });
       navigateTo("home");
     } catch (err) {
       console.error("Google sign-in failed:", err);
+      showErrorAlert(err.code || "Unknown error");
     } finally {
       setAuthInProgress(false);
     }
@@ -67,12 +108,14 @@ const AuthPage = ({ navigateTo }) => {
           : "Logged in successfully.",
         timer: 3000,
         showConfirmButton: false,
-        toast: true,
-        position: "top-end",
+        // toast: true,
+        // position: "center",
+        position: "center",
       });
       navigateTo("home");
     } catch (err) {
-      console.error("Email sign-in failed:", err);
+      console.error("Email auth failed:", err);
+      showErrorAlert(err.code || "Unknown error");
     } finally {
       setAuthInProgress(false);
     }
@@ -212,12 +255,6 @@ const AuthPage = ({ navigateTo }) => {
             >
               Continue as Guest
             </button>
-
-            {authError && (
-              <div className="text-center text-sm text-red-500 dark:text-red-400">
-                {authError}
-              </div>
-            )}
           </div>
 
           <div className="mt-6 text-center">

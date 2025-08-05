@@ -12,6 +12,7 @@ const ProfilePage = ({ navigateTo, theme, toggleTheme, isAuthenticated, logout }
   const [activeTab, setActiveTab] = useState('posted');
   const [postedTasks, setPostedTasks] = useState([]);
   const [completedTasks, setCompletedTasks] = useState([]);
+  const [allTasks, setAllTasks] = useState([]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -29,13 +30,24 @@ const ProfilePage = ({ navigateTo, theme, toggleTheme, isAuthenticated, logout }
           where("acceptedBy.uid", "==", user.uid)
         );
 
-        const [postedSnap, completedSnap] = await Promise.all([
+        const allQuery = query(
+          collection(db, "tasks")
+        );
+
+        const [postedSnap, completedSnap, allSnap] = await Promise.all([
           getDocs(postedQuery),
           getDocs(completedQuery),
+          getDocs(allQuery),
         ]);
+
+        const allFetched = allSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const filteredAllTasks = allFetched.filter(task =>
+          task.postedBy === user.uid || task?.acceptedBy?.uid === user.uid
+        );
 
         setPostedTasks(postedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setCompletedTasks(completedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setAllTasks(filteredAllTasks);
       } catch (err) {
         console.error("Error fetching tasks:", err);
       }
@@ -67,7 +79,7 @@ const ProfilePage = ({ navigateTo, theme, toggleTheme, isAuthenticated, logout }
   const email = user.email || 'Not provided';
   const phone = user.phoneNumber || 'Not available';
   const photoURL = user.photoURL;
-  const avatarLetter = displayName[0] || 'U';
+  const avatarLetter = displayName[0]?.toUpperCase() || 'U';
   const joinedDate = user.metadata?.creationTime
     ? new Date(user.metadata.creationTime).toLocaleDateString()
     : 'Unknown';
@@ -109,14 +121,8 @@ const ProfilePage = ({ navigateTo, theme, toggleTheme, isAuthenticated, logout }
       <div className="max-w-3xl mx-auto p-4">
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
           <div className="flex items-center gap-4">
-            {photoURL ? (
-              <img
-                src={photoURL}
-                alt="User"
-                className="w-20 h-20 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-20 h-20 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center text-2xl font-bold text-white">
+           { (
+              <div className="w-20 h-20 rounded-full bg-blue-500 flex items-center justify-center text-3xl font-bold text-white">
                 {avatarLetter}
               </div>
             )}
@@ -167,6 +173,7 @@ const ProfilePage = ({ navigateTo, theme, toggleTheme, isAuthenticated, logout }
           </div>
         </div>
 
+        {/* Tab Switch */}
         <div className="mt-8">
           <div className="flex gap-4 border-b mb-4">
             <button
@@ -189,10 +196,22 @@ const ProfilePage = ({ navigateTo, theme, toggleTheme, isAuthenticated, logout }
             >
               Completed Tasks
             </button>
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`py-2 px-4 ${
+                activeTab === 'all'
+                  ? 'border-b-2 border-blue-500 text-blue-500'
+                  : 'text-gray-500 dark:text-gray-400'
+              }`}
+            >
+              All Tasks
+            </button>
           </div>
 
+          {/* Task Renders */}
           {activeTab === 'posted' && renderTaskList(postedTasks)}
           {activeTab === 'completed' && renderTaskList(completedTasks)}
+          {activeTab === 'all' && renderTaskList(allTasks)}
         </div>
       </div>
       <BottomNav navigateTo={navigateTo} />
