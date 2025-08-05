@@ -180,11 +180,12 @@ const TaskCard = ({ task, navigateTo, theme, currentUserId }) => {
   )}
 
   {!isMineAsPoster && task.postedByName && (
-    <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 dark:bg-gray-800/40 dark:text-gray-200">
-      <CheckCircle size={12} />
-      Posted by {task.postedByName}
-    </span>
-  )}
+  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border border-gray-300 text-gray-800 dark:border-teal-500 dark:text-teal-300">
+    <CheckCircle size={12} />
+    Posted by {task.postedByName}
+  </span>
+)}
+
 
   {!isMineAsProvider && task.acceptedBy?.uid && acceptedByName && (
     <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200">

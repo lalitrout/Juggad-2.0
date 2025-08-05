@@ -1,5 +1,6 @@
 import React, { createContext, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
+import Swal from 'sweetalert2';
 import {
   auth,
   db,
@@ -190,18 +191,54 @@ export const AuthProvider = ({ children, navigateTo }) => {
 
   // ---------- Logout ----------
   const logout = async () => {
+ const result = await Swal.fire({
+  title: 'Are you sure?',
+  text: 'Do you really want to logout?',
+  icon: 'warning',
+  showCancelButton: true,
+  showConfirmButton: true,
+  confirmButtonText: 'Yes, Logout',
+  cancelButtonText: 'Cancel',
+  customClass: {
+    confirmButton: 'bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700',
+    cancelButton: 'bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400',
+  }
+});
+
+  if (result.isConfirmed) {
     try {
       await signOut(auth);
       await clearSessionCookie();
       setUser(null);
       setAuthError(null);
       navigateTo && navigateTo('auth');
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Logged Out',
+        text: 'You have been logged out successfully.',
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
     } catch (error) {
       console.error('Logout Error:', error);
-      throw error;
+      Swal.fire({
+        icon: 'error',
+        title: 'Logout Failed',
+        text: 'Something went wrong while logging out.',
+      });
     }
-  };
-
+  } else {
+    Swal.fire({
+        icon: 'success',
+        title: 'Logging out aborted',
+        text: 'You are with us.',
+        timer: 2000,
+        showConfirmButton: false,
+      });
+  }
+};
   const value = useMemo(
     () => ({
       user,
