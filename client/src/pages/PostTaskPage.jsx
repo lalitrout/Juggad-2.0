@@ -1,5 +1,6 @@
 import { useState, useContext } from "react";
-import { ArrowLeft, FileText, MapPin, DollarSign, Tag, X } from "lucide-react";
+import { ArrowLeft, FileText, MapPin , Tag, X } from "lucide-react";
+import { FaRupeeSign } from "react-icons/fa";
 import Header from "../components/Header";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/Input";
@@ -11,9 +12,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
-import { AuthContext } from '../AuthContext'; 
-
-
+import { AuthContext } from "../AuthContext";
 
 const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
   const { user } = useContext(AuthContext);
@@ -70,9 +69,9 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
   ];
 
   const budgetOptions = [
-    { value: "15", label: "$15 Quick Task" },
-    { value: "35", label: "$35 Most Popular" },
-    { value: "75", label: "$75 Premium" },
+    { value: "99", label: "₹99 Quick Task" },
+    { value: "349", label: "₹349 Most Popular" },
+    { value: "799", label: "₹799 Premium" },
     { value: "custom", label: "Custom Amount" },
   ];
 
@@ -155,10 +154,10 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-      if (!user || !user.uid) {
-    alert('User not authenticated');
-    return;
-  }
+    if (!user || !user.uid) {
+      alert("User not authenticated");
+      return;
+    }
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -183,7 +182,8 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
         requirements: formData.requirements?.trim() || "",
         tags: selectedTags,
         postedBy: user.uid,
-        postedByName: user?.displayName || user?.email?.split("@")[0] || "Anonymous",
+        postedByName:
+          user?.displayName || user?.email?.split("@")[0] || "Anonymous",
         status: "open",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -216,7 +216,10 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               aria-label="Back to home"
             >
-              <ArrowLeft size={24} className="text-gray-600 dark:text-gray-300" />
+              <ArrowLeft
+                size={24}
+                className="text-gray-600 dark:text-gray-300"
+              />
             </button>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
               Post a New Task
@@ -247,7 +250,10 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
                   aria-describedby={errors.title ? "title-error" : undefined}
                 />
                 {errors.title && (
-                  <p id="title-error" className="text-sm text-red-600 dark:text-red-400 mt-1 animate-pulse">
+                  <p
+                    id="title-error"
+                    className="text-sm text-red-600 dark:text-red-400 mt-1 animate-pulse"
+                  >
                     {errors.title}
                   </p>
                 )}
@@ -265,10 +271,15 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
                   onChange={handleInputChange}
                   required
                   aria-invalid={!!errors.description}
-                  aria-describedby={errors.description ? "description-error" : undefined}
+                  aria-describedby={
+                    errors.description ? "description-error" : undefined
+                  }
                 />
                 {errors.description && (
-                  <p id="description-error" className="text-sm text-red-600 dark:text-red-400 mt-1 animate-pulse">
+                  <p
+                    id="description-error"
+                    className="text-sm text-red-600 dark:text-red-400 mt-1 animate-pulse"
+                  >
                     {errors.description}
                   </p>
                 )}
@@ -286,17 +297,33 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
                     onChange={handleInputChange}
                     required
                     aria-invalid={!!errors.category}
-                    aria-describedby={errors.category ? "category-error" : undefined}
+                    aria-describedby={
+                      errors.category ? "category-error" : undefined
+                    }
                   >
                     <option value="">Select a category</option>
                     {[
-                      "Cleaning","Delivery","Tech Support","Moving","Pet Care","Handyman","Tutoring","Shopping","Yard Work","Other"
+                      "Cleaning",
+                      "Delivery",
+                      "Tech Support",
+                      "Moving",
+                      "Pet Care",
+                      "Handyman",
+                      "Tutoring",
+                      "Shopping",
+                      "Yard Work",
+                      "Other",
                     ].map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
                     ))}
                   </select>
                   {errors.category && (
-                    <p id="category-error" className="text-sm text-red-600 dark:text-red-400 mt-1 animate-pulse">
+                    <p
+                      id="category-error"
+                      className="text-sm text-red-600 dark:text-red-400 mt-1 animate-pulse"
+                    >
                       {errors.category}
                     </p>
                   )}
@@ -312,8 +339,18 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
                     value={formData.duration}
                     onChange={handleInputChange}
                   >
-                    {["", "30 minutes","1 hour","2 hours","Half-day","Full-day","Multiple days"].map((d) => (
-                      <option key={d} value={d}>{d || "Select duration"}</option>
+                    {[
+                      "",
+                      "30 minutes",
+                      "1 hour",
+                      "2 hours",
+                      "Half-day",
+                      "Full-day",
+                      "Multiple days",
+                    ].map((d) => (
+                      <option key={d} value={d}>
+                        {d || "Select duration"}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -340,10 +377,15 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
                   required
                   className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-emerald-500 dark:focus:border-blue-400 focus:ring focus:ring-emerald-500/10 dark:focus:ring-blue-400/10 min-h-14"
                   aria-invalid={!!errors.location}
-                  aria-describedby={errors.location ? "location-error" : undefined}
+                  aria-describedby={
+                    errors.location ? "location-error" : undefined
+                  }
                 />
                 {errors.location && (
-                  <p id="location-error" className="text-sm text-red-600 dark:text-red-400 mt-1 animate-pulse">
+                  <p
+                    id="location-error"
+                    className="text-sm text-red-600 dark:text-red-400 mt-1 animate-pulse"
+                  >
                     {errors.location}
                   </p>
                 )}
@@ -381,7 +423,7 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
             {/* 3. Pricing & Payment */}
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6 sm:p-8">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <DollarSign size={20} />
+                <FaRupeeSign size={20} />
                 3. Pricing & Payment
               </h2>
 
@@ -391,9 +433,9 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   {[
-                    { value: "15", label: "$15 Quick Task" },
-                    { value: "35", label: "$35 Most Popular" },
-                    { value: "75", label: "$75 Premium" },
+                    { value: "99", label: "₹99 Quick Task" },
+                    { value: "349", label: "₹349 Most Popular" },
+                    { value: "799", label: "₹799 Premium" },
                     { value: "custom", label: "Custom Amount" },
                   ].map((option) => (
                     <label
@@ -426,8 +468,8 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
                     Custom Amount
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-3.5 text-gray-500 dark:text-gray-400">
-                      $
+                    <span className="absolute left-3 top-5 text-gray-500 dark:text-gray-400">
+                      <FaRupeeSign size={16} />
                     </span>
                     <Input
                       type="number"

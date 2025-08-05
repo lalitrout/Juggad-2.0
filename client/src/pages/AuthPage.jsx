@@ -1,19 +1,20 @@
 import React, { useState, useContext } from "react";
-import { ArrowLeft, User, UserCheck, Mail, HandHeart } from "lucide-react";
+import { ArrowLeft, User, UserCheck, Mail, HandHeart, Loader2 } from "lucide-react";
 import { AuthContext } from "../AuthContext";
+import Swal from "sweetalert2";
 
 const AuthPage = ({ navigateTo }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState(""); // 👈 Name input
+  const [name, setName] = useState("");
+  const [authInProgress, setAuthInProgress] = useState(false);
 
   const {
     signInWithGoogle,
     registerWithEmail,
     signInWithEmail,
-    loading,
     authError,
   } = useContext(AuthContext);
 
@@ -25,27 +26,55 @@ const AuthPage = ({ navigateTo }) => {
 
   const handleGoogleAuth = async () => {
     try {
+      setAuthInProgress(true);
       const rolesToSave =
         selectedRoles.length > 0 ? selectedRoles : ["poster", "provider"];
       await signInWithGoogle(rolesToSave);
+      await Swal.fire({
+        icon: "success",
+        title: "Welcome!",
+        text: isSignUp
+          ? "Account created successfully."
+          : "Logged in successfully.",
+        timer: 3000,
+        showConfirmButton: false,
+        toast: true,
+        position: "top-end",
+      });
       navigateTo("home");
     } catch (err) {
       console.error("Google sign-in failed:", err);
+    } finally {
+      setAuthInProgress(false);
     }
   };
 
   const handleEmailAuth = async () => {
     try {
+      setAuthInProgress(true);
       const rolesToSave =
         selectedRoles.length > 0 ? selectedRoles : ["poster", "provider"];
       if (isSignUp) {
-        await registerWithEmail(email, password, rolesToSave, name); // 👈 Name passed
+        await registerWithEmail(email, password, rolesToSave, name);
       } else {
         await signInWithEmail(email, password);
       }
+      await Swal.fire({
+        icon: "success",
+        title: "Welcome!",
+        text: isSignUp
+          ? "Account created successfully."
+          : "Logged in successfully.",
+        timer: 3000,
+        showConfirmButton: false,
+        toast: true,
+        position: "top-end",
+      });
       navigateTo("home");
     } catch (err) {
       console.error("Email sign-in failed:", err);
+    } finally {
+      setAuthInProgress(false);
     }
   };
 
@@ -121,7 +150,6 @@ const AuthPage = ({ navigateTo }) => {
             </div>
           )}
 
-          {/* EMAIL INPUT FIELDS */}
           <div className="space-y-3 mb-6">
             {isSignUp && (
               <input
@@ -148,9 +176,14 @@ const AuthPage = ({ navigateTo }) => {
             />
             <button
               onClick={handleEmailAuth}
+              disabled={authInProgress}
               className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 font-medium rounded-xl hover:from-gray-200 hover:to-gray-300 dark:from-gray-700 dark:to-gray-600 dark:text-white dark:hover:from-gray-600 dark:hover:to-gray-500 transition-all shadow-md"
             >
-              <Mail size={20} />
+              {authInProgress ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Mail size={20} />
+              )}
               {isSignUp ? "Sign Up with Email" : "Sign In with Email"}
             </button>
           </div>
@@ -158,13 +191,20 @@ const AuthPage = ({ navigateTo }) => {
           <div className="space-y-3">
             <button
               onClick={handleGoogleAuth}
+              disabled={authInProgress}
               className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-primary-500 to-accent-500 text-white font-medium rounded-xl hover:from-primary-600 hover:to-accent-600 transition-all shadow-md"
             >
-              <User size={20} />
+              {authInProgress ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <User size={20} />
+              )}
               {isSignUp ? "Sign Up with Google" : "Sign In with Google"}
             </button>
 
-            <div className="text-center text-gray-500 dark:text-gray-400 text-sm">OR</div>
+            <div className="text-center text-gray-500 dark:text-gray-400 text-sm">
+              OR
+            </div>
 
             <button
               onClick={handleGuestContinue}
@@ -173,11 +213,10 @@ const AuthPage = ({ navigateTo }) => {
               Continue as Guest
             </button>
 
-            {loading && (
-              <div className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</div>
-            )}
             {authError && (
-              <div className="text-center text-sm text-red-500 dark:text-red-400">{authError}</div>
+              <div className="text-center text-sm text-red-500 dark:text-red-400">
+                {authError}
+              </div>
             )}
           </div>
 

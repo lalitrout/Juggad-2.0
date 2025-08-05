@@ -50,46 +50,46 @@ const TaskDetails = ({
 
   const mapTask = (snap) => {
     const d = snap.data() || {};
-     return {
-  id: snap.id,
-  title: d.title || "Untitled task",
-  description: d.description || "",
-  budget: d.budget ?? 0,
-  location: d.location || "—",
-  category: d.category || "general",
-  urgency: d.urgency || "medium",
-  negotiable: d.negotiable ?? false,
-  tags: Array.isArray(d.tags) ? d.tags : [],
-  status: d.status || "open",
-  requirements: d.requirements || "",
-  postedBy: d.postedBy || null,
-  postedByName: d.postedByName || null,
-  acceptedBy: d.acceptedBy || null,
+    return {
+      id: snap.id,
+      title: d.title || "Untitled task",
+      description: d.description || "",
+      budget: d.budget ?? 0,
+      location: d.location || "—",
+      category: d.category || "general",
+      urgency: d.urgency || "medium",
+      negotiable: d.negotiable ?? false,
+      tags: Array.isArray(d.tags) ? d.tags : [],
+      status: d.status || "open",
+      requirements: d.requirements || "",
+      postedBy: d.postedBy || null,
+      postedByName: d.postedByName || null,
+      acceptedBy: d.acceptedBy || null,
 
-  acceptedUser: {
-    name: d.acceptedBy?.name || "—",
-    uid: d.acceptedBy?.uid || null,
-    photoURL: d.acceptedBy?.photoURL || null,
-  },
+      acceptedUser: {
+        name: d.acceptedBy?.name || "—",
+        uid: d.acceptedBy?.uid || null,
+        photoURL: d.acceptedBy?.photoURL || null,
+      },
 
-  poster: d.poster || {
-    name: d.postedByName || "Member",
-    rating: typeof d.posterRating === "number" ? d.posterRating : 4.5,
-    reviews: typeof d.posterReviews === "number" ? d.posterReviews : 0,
-    avatar: (d.postedByName || "MB")
-      .split(" ")
-      .map((s) => s[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase(),
-  },
+      poster: d.poster || {
+        name: d.postedByName || "Member",
+        rating: typeof d.posterRating === "number" ? d.posterRating : 4.5,
+        reviews: typeof d.posterReviews === "number" ? d.posterReviews : 0,
+        avatar: (d.postedByName || "MB")
+          .split(" ")
+          .map((s) => s[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase(),
+      },
 
-  createdAt: toISO(d.createdAt),
-  updatedAt: toISO(d.updatedAt),
-  deadline: toISO(d.scheduledAt),
-  scheduledAtDate: toDate(d.scheduledAt),
-
-  };};
+      createdAt: toISO(d.createdAt),
+      updatedAt: toISO(d.updatedAt),
+      deadline: toISO(d.scheduledAt),
+      scheduledAtDate: toDate(d.scheduledAt),
+    };
+  };
 
   const formatIST = (date) => {
     if (!date) return "—";
@@ -157,8 +157,8 @@ const TaskDetails = ({
         navigateTo("login");
         return;
       }
-       // Keep poster UID handy for chat creation after transaction
-    const posterUid = task?.postedBy;
+      // Keep poster UID handy for chat creation after transaction
+      const posterUid = task?.postedBy;
 
       await runTransaction(db, async (trx) => {
         const tRef = doc(db, "tasks", task.id);
@@ -186,19 +186,20 @@ const TaskDetails = ({
         });
       });
 
-       // ✅ Ensure a parent chat doc exists for this task → chatId === task.id
-     // This satisfies the chat rules so both participants can read/write messages.
-     if (posterUid && auth.currentUser?.uid) {
-       await setDoc(
-         doc(db, "chats", task.id),
-         {
-           participants: [posterUid, auth.currentUser.uid],
-           taskId: task.id,          lastMessage: "",
-           lastMessageAt: serverTimestamp(),
-         },
-         { merge: true } // safe to call multiple times
-      );
-     }
+      // ✅ Ensure a parent chat doc exists for this task → chatId === task.id
+      // This satisfies the chat rules so both participants can read/write messages.
+      if (posterUid && auth.currentUser?.uid) {
+        await setDoc(
+          doc(db, "chats", task.id),
+          {
+            participants: [posterUid, auth.currentUser.uid],
+            taskId: task.id,
+            lastMessage: "",
+            lastMessageAt: serverTimestamp(),
+          },
+          { merge: true } // safe to call multiple times
+        );
+      }
 
       // Optional optimistic UI
       setTask((prev) =>
@@ -208,7 +209,7 @@ const TaskDetails = ({
               status: "assigned",
               acceptedBy: {
                 uid: auth.currentUser?.uid,
-                name: auth.currentUser?.displayName || "Member",
+                name: auth.currentUser?.displayName || "User",
                 photoURL: auth.currentUser?.photoURL || "",
                 acceptedAt: new Date().toISOString(),
               },
@@ -595,7 +596,6 @@ const TaskDetails = ({
                 const posterName = isPoster ? "You" : task.poster?.name;
                 const assigneeName = isAssignee ? "You" : task.acceptedBy?.name;
 
-
                 return (
                   <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6 sm:p-8 mb-6">
                     <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
@@ -637,7 +637,7 @@ const TaskDetails = ({
                       </div>
 
                       {/* Message button to poster (hide if you are the poster) */}
-                      {!isPoster && (
+                      {(isPoster || isAssignee) && (
                         <Button
                           onClick={() =>
                             navigateTo("chat", { chatId: task.id })

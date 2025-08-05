@@ -450,7 +450,7 @@ const Header = ({
                     variant="outline"
                     size="responsive"
                     onClick={logout}
-                    className="dark:border-gray-600 dark:text-gray-300 dark:hover:text-white"
+                    className="dark:border-gray-600 dark:text-gray-300 dark:hover:text-black"
                   >
                     Logout
                   </Button>
@@ -461,7 +461,7 @@ const Header = ({
                     variant="ghost"
                     size="responsive"
                     onClick={() => navigateTo("auth")}
-                    className="dark:text-gray-300 dark:hover:text-white"
+                    className="dark:text-gray-300 dark:hover:text-black"
                   >
                     Sign In
                   </Button>
@@ -479,7 +479,7 @@ const Header = ({
                 variant="ghost"
                 size="responsive"
                 onClick={toggleTheme}
-                className="dark:text-gray-300 dark:hover:text-white"
+                className="dark:text-gray-300 dark:hover:text-black"
                 aria-label={
                   theme === "light"
                     ? "Switch to dark mode"

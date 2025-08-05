@@ -166,13 +166,13 @@ io.use(async (socket, next) => {
 // --- Socket.IO handlers ---
 io.on('connection', (socket) => {
   const { uid } = socket.data;
-  console.log('🔌 Socket connected:', socket.id, 'uid:', uid);
+  console.log(' Socket connected:', socket.id, 'uid:', uid);
 
   // JOIN a chat room
   socket.on('chat:join', async (payload = {}) => {
     try {
       const chatId = normalizeId(payload);
-      console.log('➡️  chat:join payload:', payload, '→ chatId:', chatId);
+      console.log('  chat:join payload:', payload, '→ chatId:', chatId);
 
       if (!chatId) {
         return socket.emit('chat:error', { message: 'chatId is required for chat:join' });

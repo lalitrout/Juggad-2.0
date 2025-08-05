@@ -1,18 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Send, Paperclip, Image, Star } from 'lucide-react';
-import NavHeader from '../components/Header';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Send, Paperclip, Image, Star } from "lucide-react";
+import NavHeader from "../components/Header";
 
-import { useChat } from '../hooks/useChat';
-import { setDoc, addDoc, doc, collection, serverTimestamp, onSnapshot } from "firebase/firestore";
+import { useChat } from "../hooks/useChat";
+import {
+  setDoc,
+  addDoc,
+  doc,
+  collection,
+  serverTimestamp,
+  onSnapshot,
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { db } from "../firebase";
 
-function initials(name = 'Member') {
+function initials(name = "Member") {
   return name
     .trim()
-    .split(' ')
+    .split(" ")
     .map((s) => s[0])
-    .join('')
+    .join("")
     .slice(0, 2)
     .toUpperCase();
 }
@@ -25,12 +32,12 @@ function formatTime(ts) {
         ? ts.toDate()
         : ts instanceof Date
         ? ts
-        : typeof ts === 'string'
+        : typeof ts === "string"
         ? new Date(ts)
         : new Date();
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   } catch {
-    return '';
+    return "";
   }
 }
 
@@ -38,7 +45,7 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
   const auth = getAuth();
   const myUid = auth.currentUser?.uid || null;
 
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const [task, setTask] = useState(null);
   const [loadingTask, setLoadingTask] = useState(true);
 
@@ -56,9 +63,9 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
   }, [task]);
 
   const { messages, typing, sendMessage, setIsTyping } = useChat(chatId, {
-    participants,         // <-- removed "as string[]" (TS-only)
+    participants, // <-- removed "as string[]" (TS-only)
     taskId: chatId,
-    useSocket: true,      // keep typing presence
+    useSocket: true, // keep typing presence
     pageSize: 500,
   });
 
@@ -70,7 +77,7 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
       return;
     }
     setLoadingTask(true);
-    const ref = doc(db, 'tasks', chatId);
+    const ref = doc(db, "tasks", chatId);
     const unsub = onSnapshot(
       ref,
       (snap) => {
@@ -88,21 +95,33 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
 
   // ---- Compute "other" participant
   const otherUser = useMemo(() => {
-    if (!task || !myUid) return { name: 'Member' , rating: 4.8, online: true };
+    if (!task || !myUid) return { name: "Member", rating: 4.8, online: true };
     const iAmPoster = task.postedBy === myUid;
     if (iAmPoster) {
-      const name = task.acceptedBy?.name || 'Member';
-      return { name, avatar: initials(name), rating: 4.8, online: true, taskId: task.id };
+      const name = task.acceptedBy?.name || "Member";
+      return {
+        name,
+        avatar: initials(name),
+        rating: 4.8,
+        online: true,
+        taskId: task.id,
+      };
     } else {
-      const name = task.postedByName || 'Member';
-      return { name, avatar: initials(name), rating: task.poster?.rating ?? 4.8, online: true, taskId: task.id };
+      const name = task.postedByName || "Member";
+      return {
+        name,
+        avatar: initials(name),
+        rating: task.poster?.rating ?? 4.8,
+        online: true,
+        taskId: task.id,
+      };
     }
   }, [task, myUid]);
 
   // ---- Scroll to bottom on new messages
   useEffect(() => {
     const t = setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 60);
     return () => clearTimeout(t);
   }, [messages]);
@@ -110,7 +129,7 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
   // ---- Keyboard / viewport handling (mobile)
   useEffect(() => {
     const inputWrapper = inputWrapperRef.current;
-    const messagesContainer = document.querySelector('.messages-container');
+    const messagesContainer = document.querySelector(".messages-container");
 
     const handleResize = () => {
       if (inputWrapper && messagesContainer) {
@@ -118,48 +137,55 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
         let keyboardHeight = 0;
 
         if (visualViewport) {
-          keyboardHeight = Math.max(0, window.innerHeight - visualViewport.height);
-          inputWrapper.style.position = 'fixed';
+          keyboardHeight = Math.max(
+            0,
+            window.innerHeight - visualViewport.height
+          );
+          inputWrapper.style.position = "fixed";
           inputWrapper.style.bottom = `${keyboardHeight}px`;
-          inputWrapper.style.left = '0';
-          inputWrapper.style.right = '0';
-          inputWrapper.style.zIndex = '40';
-          messagesContainer.style.paddingBottom = `${keyboardHeight + inputWrapper.offsetHeight + 80}px`;
+          inputWrapper.style.left = "0";
+          inputWrapper.style.right = "0";
+          inputWrapper.style.zIndex = "40";
+          messagesContainer.style.paddingBottom = `${
+            keyboardHeight + inputWrapper.offsetHeight + 80
+          }px`;
         } else {
-          inputWrapper.style.position = 'fixed';
-          inputWrapper.style.bottom = '0';
-          inputWrapper.style.left = '0';
-          inputWrapper.style.right = '0';
-          inputWrapper.style.zIndex = '40';
-          messagesContainer.style.paddingBottom = `${Math.max(inputWrapper.offsetHeight, 80) + 80}px`;
+          inputWrapper.style.position = "fixed";
+          inputWrapper.style.bottom = "0";
+          inputWrapper.style.left = "0";
+          inputWrapper.style.right = "0";
+          inputWrapper.style.zIndex = "40";
+          messagesContainer.style.paddingBottom = `${
+            Math.max(inputWrapper.offsetHeight, 80) + 80
+          }px`;
         }
 
         setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
         }, 60);
       }
     };
 
-    window.addEventListener('resize', handleResize);
-    window.visualViewport?.addEventListener('resize', handleResize);
-    window.addEventListener('focusin', handleResize);
-    window.addEventListener('focusout', handleResize);
+    window.addEventListener("resize", handleResize);
+    window.visualViewport?.addEventListener("resize", handleResize);
+    window.addEventListener("focusin", handleResize);
+    window.addEventListener("focusout", handleResize);
 
     handleResize();
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      window.visualViewport?.removeEventListener('resize', handleResize);
-      window.removeEventListener('focusin', handleResize);
-      window.removeEventListener('focusout', handleResize);
-      if (messagesContainer) messagesContainer.style.paddingBottom = '';
+      window.removeEventListener("resize", handleResize);
+      window.visualViewport?.removeEventListener("resize", handleResize);
+      window.removeEventListener("focusin", handleResize);
+      window.removeEventListener("focusout", handleResize);
+      if (messagesContainer) messagesContainer.style.paddingBottom = "";
     };
   }, []);
 
   // ---- Align sticky task context with header height
   useEffect(() => {
     const profileHeader = profileHeaderRef.current;
-    const taskContext = document.querySelector('.task-context');
+    const taskContext = document.querySelector(".task-context");
     if (profileHeader && taskContext) {
       taskContext.style.top = `${profileHeader.offsetHeight}px`;
     }
@@ -167,40 +193,39 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
 
   // ---- Send handler
   const handleSendMessage = async (e) => {
-  e.preventDefault();
-  if (!message.trim() || !chatId) return;
+    e.preventDefault();
+    if (!message.trim() || !chatId) return;
 
-  const auth = getAuth();
-  const currentUserUid = auth.currentUser.uid;
+    const auth = getAuth();
+    const currentUserUid = auth.currentUser.uid;
 
-  // 1️⃣ Ensure chat document exists (with participants)
-  const participants = [
-    task?.postedBy,
-    task?.acceptedBy?.uid
-  ].filter(Boolean);
+    // 1️⃣ Ensure chat document exists (with participants)
+    const participants = [task?.postedBy, task?.acceptedBy?.uid].filter(
+      Boolean
+    );
 
-  await setDoc(
-    doc(db, "chats", chatId),
-    {
-      participants,
+    await setDoc(
+      doc(db, "chats", chatId),
+      {
+        participants,
+        createdAt: serverTimestamp(),
+        lastMessage: message.trim(),
+        lastMessageAt: serverTimestamp(),
+        taskId: chatId,
+      },
+      { merge: true }
+    );
+
+    // 2️⃣ Add the message to messages sub-collection
+    await addDoc(collection(db, "chats", chatId, "messages"), {
+      text: message.trim(),
+      senderUid: currentUserUid,
       createdAt: serverTimestamp(),
-      lastMessage: message.trim(),
-      lastMessageAt: serverTimestamp(),
-      taskId: chatId,
-    },
-    { merge: true }
-  );
+    });
 
-  // 2️⃣ Add the message to messages sub-collection
-  await addDoc(collection(db, "chats", chatId, "messages"), {
-    text: message.trim(),
-    senderUid: currentUserUid,
-    createdAt: serverTimestamp(),
-  });
-
-  setMessage('');
-  setTimeout(() => messageInputRef.current?.focus(), 10);
-};
+    setMessage("");
+    setTimeout(() => messageInputRef.current?.focus(), 10);
+  };
   // ========== Chat List Page (minimal) ==========
   if (!chatId) {
     return (
@@ -215,15 +240,18 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
         />
         <main className="max-w-3xl mx-auto py-10 px-4">
           <button
-            onClick={() => navigateTo('home')}
+            onClick={() => navigateTo("home")}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg mb-4"
           >
             <ArrowLeft size={20} className="text-gray-600 dark:text-gray-300" />
           </button>
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 text-center">
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Messages</h1>
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              Messages
+            </h1>
             <p className="text-gray-600 dark:text-gray-300">
-              Open a task and tap <b>Message</b> to start a conversation with the other participant.
+              Open a task and tap <b>Message</b> to start a conversation with
+              the other participant.
             </p>
           </div>
         </main>
@@ -233,7 +261,7 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
 
   // ========== Chat Conversation Page ==========
   const headerAvatar = otherUser?.avatar || initials(otherUser?.name);
-  const headerName = otherUser?.name || 'Member';
+  const headerName = otherUser?.name || "Member";
   const headerRating = otherUser?.rating ?? 4.8;
 
   return (
@@ -245,11 +273,20 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
       >
         <div className="flex items-center gap-2 sm:gap-4">
           <button
-            onClick={() => navigateTo('chat')}
+            onClick={() => {
+              if (chatId) {
+                navigateTo("task", { taskId: chatId });
+              } else {
+                navigateTo("home");
+              }
+            }}
             className="p-1 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             aria-label="Back to chat list"
           >
-            <ArrowLeft size={18} className="text-gray-600 dark:text-gray-300 sm:w-5 sm:h-5" />
+            <ArrowLeft
+              size={18}
+              className="text-gray-600 dark:text-gray-300 sm:w-5 sm:h-5"
+            />
           </button>
 
           <div className="flex items-center gap-2 sm:gap-3 flex-1">
@@ -267,16 +304,22 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
                 {headerName}
               </h3>
               <div className="flex items-center gap-1 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-                <Star size={10} className="text-yellow-400" fill="currentColor" />
+                <Star
+                  size={10}
+                  className="text-yellow-400"
+                  fill="currentColor"
+                />
                 <span>{headerRating}</span>
                 <span>•</span>
-                <span className="text-green-600 dark:text-green-400">Online</span>
+                <span className="text-green-600 dark:text-green-400">
+                  Online
+                </span>
               </div>
             </div>
           </div>
 
           <button
-            onClick={() => navigateTo('task', { taskId: chatId })}
+            onClick={() => navigateTo("task", { taskId: chatId })}
             className="border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 text-xs sm:text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             aria-label="View task details"
           >
@@ -290,16 +333,16 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
         <div className="flex items-center justify-between">
           <div>
             <h4 className="font-medium text-sm sm:text-base text-emerald-900 dark:text-emerald-300">
-              {task?.title || 'Task'}
+              {task?.title || "Task"}
             </h4>
-            {typeof task?.budget !== 'undefined' && (
+            {typeof task?.budget !== "undefined" && (
               <p className="text-xs sm:text-sm text-emerald-700 dark:text-emerald-400">
-                Budget: ₹{Number(task?.budget ?? 0).toLocaleString('en-IN')}
+                Budget: ₹{Number(task?.budget ?? 0).toLocaleString("en-IN")}
               </p>
             )}
           </div>
           <button
-            onClick={() => navigateTo('task', { taskId: chatId })}
+            onClick={() => navigateTo("task", { taskId: chatId })}
             className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-200 text-xs sm:text-sm transition-colors"
             aria-label="View task details"
           >
@@ -313,20 +356,27 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
         <div className="max-w-[90vw] mx-auto space-y-3 sm:space-y-4">
           {messages.map((msg) => {
             const isMine = msg.senderUid === myUid;
-            const ts = msg.createdAt?.toDate ? msg.createdAt.toDate() : msg.createdAt;
+            const ts = msg.createdAt?.toDate
+              ? msg.createdAt.toDate()
+              : msg.createdAt;
             return (
-              <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+              <div
+                key={msg.id}
+                className={`flex ${isMine ? "justify-end" : "justify-start"}`}
+              >
                 <div
                   className={`max-w-[70%] px-3 py-2 rounded-2xl break-words ${
                     isMine
-                      ? 'bg-emerald-500 dark:bg-emerald-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
+                      ? "bg-emerald-500 dark:bg-emerald-600 text-white"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
                   }`}
                 >
                   <p className="text-xs sm:text-sm">{msg.text}</p>
                   <p
                     className={`text-[10px] sm:text-xs mt-1 ${
-                      isMine ? 'text-emerald-100' : 'text-gray-500 dark:text-gray-400'
+                      isMine
+                        ? "text-emerald-100"
+                        : "text-gray-500 dark:text-gray-400"
                     }`}
                   >
                     {formatTime(ts)}
@@ -335,9 +385,11 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
               </div>
             );
           })}
-          {typing && (
-            <div className="text-xs text-gray-500 dark:text-gray-400 px-3">Typing…</div>
-          )}
+          {/* {typing && (
+            <div className="text-xs text-gray-500 dark:text-gray-400 px-3">
+              Typing…
+            </div>
+          )} */}
           <div ref={messagesEndRef} />
         </div>
       </div>
@@ -374,7 +426,10 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
                   // typing indicator (debounced)
                   setIsTyping(true);
                   clearTimeout(window.__typingTimer);
-                  window.__typingTimer = setTimeout(() => setIsTyping(false), 800);
+                  window.__typingTimer = setTimeout(
+                    () => setIsTyping(false),
+                    800
+                  );
                 }}
                 placeholder="Message..."
                 aria-label="Type a message"
@@ -384,8 +439,8 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
                 disabled={!message.trim()}
                 className={`absolute right-1 sm:right-2 top-1/2 transform -translate-y-1/2 p-1 sm:p-2 rounded-full transition-colors ${
                   message.trim()
-                    ? 'bg-emerald-500 dark:bg-emerald-600 text-white hover:bg-emerald-600 dark:hover:bg-emerald-700'
-                    : 'bg-gray-200 dark:bg-gray-600 text-gray-400 dark:text-gray-500'
+                    ? "bg-emerald-500 dark:bg-emerald-600 text-white hover:bg-emerald-600 dark:hover:bg-emerald-700"
+                    : "bg-gray-200 dark:bg-gray-600 text-gray-400 dark:text-gray-500"
                 }`}
                 aria-label="Send message"
               >

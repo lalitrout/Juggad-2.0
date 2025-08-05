@@ -1,4 +1,4 @@
-// BottomNav.jsx
+// src/components/BottomNav.jsx
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Home, Plus, MessageCircle, User, Loader2 } from "lucide-react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
@@ -11,7 +11,7 @@ import {
   limit as qlimit,
 } from "firebase/firestore";
 
-// --- helpers (same semantics as in Header) ---
+// --- helpers ---
 function toMillis(ts) {
   if (!ts) return 0;
   try {
@@ -48,23 +48,19 @@ function formatTime(ts) {
 const BottomNav = ({ navigateTo, currentPage }) => {
   const auth = getAuth();
 
-  // Live UID (keeps parity with Header.jsx pattern)
   const [uid, setUid] = useState(auth.currentUser?.uid || null);
+  const [openAssigned, setOpenAssigned] = useState(false);
+  const panelRef = useRef(null);
+
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [tasks, setTasks] = useState([]);
+  const [taskErr, setTaskErr] = useState(null);
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUid(u?.uid || null));
     return () => unsub();
   }, [auth]);
 
-  // Drop-up open state and refs
-  const [openAssigned, setOpenAssigned] = useState(false);
-  const panelRef = useRef(null);
-
-  // Assigned tasks state (live)
-  const [loadingTasks, setLoadingTasks] = useState(false);
-  const [tasks, setTasks] = useState([]);
-  const [taskErr, setTaskErr] = useState(null);
-
-  // Subscribe to assigned tasks when drop-up opens
   useEffect(() => {
     if (!openAssigned || !uid) return;
 
@@ -101,7 +97,6 @@ const BottomNav = ({ navigateTo, currentPage }) => {
     return () => unsub();
   }, [openAssigned, uid]);
 
-  // Close drop-up on outside click
   useEffect(() => {
     if (!openAssigned) return;
     const onClick = (e) => {
@@ -112,7 +107,6 @@ const BottomNav = ({ navigateTo, currentPage }) => {
     return () => document.removeEventListener("mousedown", onClick);
   }, [openAssigned]);
 
-  // Close on ESC
   useEffect(() => {
     if (!openAssigned) return;
     const onKey = (e) => {
@@ -122,7 +116,6 @@ const BottomNav = ({ navigateTo, currentPage }) => {
     return () => document.removeEventListener("keydown", onKey);
   }, [openAssigned]);
 
-  // Messages (assigned) button click
   const handleMessagesClick = useCallback(() => {
     const me = auth.currentUser;
     if (!me) {
@@ -132,7 +125,6 @@ const BottomNav = ({ navigateTo, currentPage }) => {
     setOpenAssigned((v) => !v);
   }, [auth, navigateTo]);
 
-  // Reuse Header's task row rendering behavior
   const renderTaskRow = (t) => {
     const posterName = t.poster?.name || t.postedByName || "Someone";
     const avatar = initials(posterName);
@@ -167,7 +159,6 @@ const BottomNav = ({ navigateTo, currentPage }) => {
         <button
           onClick={() => {
             setOpenAssigned(false);
-            // Same behavior as Header.jsx -> ChatPage treats chatId === task.id
             navigateTo("chat", { chatId: t.id });
           }}
           className="shrink-0 inline-flex items-center gap-1 rounded-md border border-gray-300 dark:border-gray-600 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -181,7 +172,6 @@ const BottomNav = ({ navigateTo, currentPage }) => {
 
   return (
     <>
-      {/* Bottom Navigation */}
       <nav className="bottom-nav dark:bg-gray-900 dark:border-gray-700 sm:hidden">
         <button
           onClick={() => {
@@ -209,7 +199,6 @@ const BottomNav = ({ navigateTo, currentPage }) => {
           <span>Post</span>
         </button>
 
-        {/* Messages -> opens drop-up */}
         <button
           onClick={handleMessagesClick}
           className={`bottom-nav-item dark:text-gray-300 dark:hover:text-blue-400 ${
@@ -237,41 +226,34 @@ const BottomNav = ({ navigateTo, currentPage }) => {
         </button>
       </nav>
 
-      {/* Drop-up Panel (mobile) */}
       {openAssigned && (
         <div
           className="fixed inset-0 z-[60] sm:hidden"
           role="dialog"
           aria-modal="true"
         >
-          {/* Backdrop */}
           <div className="absolute inset-0 bg-black/30" />
-
-          {/* Panel */}
           <div
             id="assigned-dropup"
             ref={panelRef}
             className="absolute bottom-0 left-0 right-0
-                       rounded-t-2xl border border-gray-200 dark:border-gray-700
-                       bg-white dark:bg-gray-900 shadow-2xl
-                       max-h-[70vh] overflow-hidden"
+              rounded-t-2xl border border-gray-200 dark:border-gray-700
+              bg-white dark:bg-gray-900 shadow-2xl
+              max-h-[70vh] overflow-hidden"
           >
-            {/* Drag handle */}
             <div className="flex justify-center py-2">
               <div className="h-1.5 w-10 rounded-full bg-gray-300 dark:bg-gray-700" />
             </div>
 
-            {/* Header */}
             <div className="px-4 pb-2 border-b border-gray-200 dark:border-gray-700">
               <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                Assigned to you
+                Chat-Eligible Tasks
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Tasks others have assigned you
+                Only showing tasks that are active (assigned or in progress)
               </p>
             </div>
 
-            {/* Content (scrollable) */}
             <div className="max-h-[60vh] overflow-y-auto py-2">
               {loadingTasks && (
                 <div className="flex items-center gap-2 p-4 text-gray-600 dark:text-gray-300">
@@ -282,7 +264,7 @@ const BottomNav = ({ navigateTo, currentPage }) => {
 
               {!loadingTasks && taskErr && (
                 <div className="p-4 text-sm text-gray-600 dark:text-gray-300">
-                  No assigned tasks to display.
+                  Failed to load assigned tasks.
                 </div>
               )}
 
@@ -297,7 +279,6 @@ const BottomNav = ({ navigateTo, currentPage }) => {
               )}
             </div>
 
-            {/* Footer actions */}
             <div className="p-2 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <button
                 onClick={() => setOpenAssigned(false)}
@@ -308,7 +289,7 @@ const BottomNav = ({ navigateTo, currentPage }) => {
               <button
                 onClick={() => {
                   setOpenAssigned(false);
-                  navigateTo("chat"); // go to messages page if user wants full view
+                  navigateTo("chat");
                 }}
                 className="px-3 py-2 text-xs text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white"
               >

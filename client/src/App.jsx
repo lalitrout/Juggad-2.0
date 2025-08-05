@@ -8,6 +8,7 @@ import ChatPage from './pages/ChatPage';
 import ProfilePage from './pages/ProfilePage';
 import './App.css';
 import { AuthContext } from './AuthContext';
+import JugaadLoader from './JugaadLoader';  // ✅ Import your loader
 
 const App = ({ setNavigateFn }) => {
   const { user, loading, logout: authLogout } = useContext(AuthContext);
@@ -16,6 +17,16 @@ const App = ({ setNavigateFn }) => {
   const [currentPage, setCurrentPage] = useState('landing');
   const [pageParams, setPageParams] = useState({});
   const [theme, setTheme] = useState('light');
+  const [showLoader, setShowLoader] = useState(true); // ✅ New state for minimum delay
+
+  // ✅ Minimum 2 second loader delay
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowLoader(false);
+    }, 2000); // Delay in ms
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Setup navigation function for parent (optional)
   useEffect(() => {
@@ -141,10 +152,11 @@ const App = ({ setNavigateFn }) => {
     }
   };
 
-  if (loading) {
+  // ✅ Loader while checking session or showing artificial delay
+  if (loading || showLoader) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-600 dark:text-white text-lg">
-        Checking session...
+      <div className="flex items-center justify-center h-screen w-screen">
+        <JugaadLoader />
       </div>
     );
   }
