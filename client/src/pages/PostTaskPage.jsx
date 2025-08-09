@@ -6,7 +6,7 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/Input";
 import Swal from "sweetalert2";
 
-import { db } from "../firebase"; // <-- your firebase.jsx
+import { db,auth } from "../firebase"; // <-- your firebase.jsx
 import {
   addDoc,
   collection,
@@ -152,65 +152,87 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
     return Number.isFinite(val) ? val : null;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+ // In PostTaskPage.jsx - Replace your handleSubmit function
 
-    if (!user || !user.uid) {
-      await Swal.fire({
-        icon: "warning",
-        title: "Not Logged In",
-        text: "Please log in to post a task.",
-      });
-      return;
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  if (!user || !user.uid) {
+    await Swal.fire({
+      icon: "warning",
+      title: "Not Logged In",
+      text: "Please log in to post a task.",
+    });
+    return;
+  }
+
+  const validationErrors = validateForm();
+  if (Object.keys(validationErrors).length > 0) {
+    setErrors(validationErrors);
+    return;
+  }
+
+  try {
+    // 🔥 FIX: Get fresh user data from Firebase Auth
+    let freshDisplayName = user?.displayName;
+    let freshPhotoURL = user?.photoURL;
+    
+    if (auth.currentUser) {
+      await auth.currentUser.reload(); // Force reload to get latest profile data
+      freshDisplayName = auth.currentUser.displayName || user?.displayName;
+      freshPhotoURL = auth.currentUser.photoURL || user?.photoURL;
     }
 
-    const validationErrors = validateForm();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
+    const payload = {
+      title: formData.title.trim(),
+      description: formData.description.trim(),
+      category: formData.category,
+      duration: formData.duration || "",
+      location: formData.location.trim(),
+      scheduledAt: buildScheduledAt(formData.date, formData.time),
+      budget: getBudgetValue(formData.budget, formData.customBudget),
+      negotiable: !!formData.negotiable,
+      requirements: formData.requirements?.trim() || "",
+      tags: selectedTags,
+      postedBy: user.uid,
+      // Use fresh data
+      postedByName: freshDisplayName || user?.email?.split("@")[0] || "Anonymous",
+      postedByPhotoURL: freshPhotoURL || null,
+      acceptedBy: null,
+      status: "open",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
 
-    try {
-      const payload = {
-        title: formData.title.trim(),
-        description: formData.description.trim(),
-        category: formData.category,
-        duration: formData.duration || "",
-        location: formData.location.trim(),
-        scheduledAt: buildScheduledAt(formData.date, formData.time),
-        budget: getBudgetValue(formData.budget, formData.customBudget),
-        negotiable: !!formData.negotiable,
-        requirements: formData.requirements?.trim() || "",
-        tags: selectedTags,
-        postedBy: user.uid,
-        postedByName: user?.displayName || user?.email?.split("@")[0] || "Anonymous",
-        postedByPhotoURL: user?.photoURL || null, // Added user's profile photo
-        acceptedBy: null, // Initialize as null, will be populated when someone accepts
-        status: "open",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
+    // Debug log to verify the data
+    console.log('Posting task with user data:', {
+      postedByName: payload.postedByName,
+      postedByPhotoURL: payload.postedByPhotoURL
+    });
 
-      await addDoc(collection(db, "tasks"), payload);
+    await addDoc(collection(db, "tasks"), payload);
 
-      await Swal.fire({
-        icon: "success",
-        title: "Task Added!",
-        text: "Your task has been posted successfully.",
-        timer: 2000,
-        showConfirmButton: false,
-      });
+    await Swal.fire({
+      icon: "success",
+      title: "Task Added!",
+      text: "Your task has been posted successfully.",
+      timer: 2000,
+      showConfirmButton: false,
+    });
 
-      navigateTo("home");
-    } catch (err) {
-      console.error("Error posting task:", err);
-      await Swal.fire({
-        icon: "error",
-        title: "Oops...",
-        text: "Something went wrong while posting your task.",
-      });
-    }
-  };
+    navigateTo("home");
+  } catch (err) {
+    console.error("Error posting task:", err);
+    await Swal.fire({
+      icon: "error",
+      title: "Oops...",
+      text: "Something went wrong while posting your task.",
+    });
+  }
+};
+
+// Don't forget to import auth at the top of your PostTaskPage.jsx
+// import { db, auth } from "../firebase";
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
