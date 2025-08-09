@@ -1,53 +1,60 @@
-import React, { useState, useEffect, useContext } from 'react';
-import LandingPage from './pages/LandingPage';
-import AuthPage from './pages/AuthPage';
-import HomePage from './pages/HomePage';
-import PostTaskPage from './pages/PostTaskPage';
-import TaskDetails from './pages/TaskDetails';
-import ChatPage from './pages/ChatPage';
-import ProfilePage from './pages/ProfilePage';
-import './App.css';
-import { AuthContext } from './AuthContext';
-import JugaadLoader from './JugaadLoader';  // ✅ Import your loader
+import React, { useState, useEffect, useContext } from "react";
+import LandingPage from "./pages/LandingPage";
+import AuthPage from "./pages/AuthPage";
+import HomePage from "./pages/HomePage";
+import PostTaskPage from "./pages/PostTaskPage";
+import TaskDetails from "./pages/TaskDetails";
+import ChatPage from "./pages/ChatPage";
+import ProfilePage from "./pages/ProfilePage";
+import "./App.css";
+import { AuthContext } from "./AuthContext";
+import GeneralLoader from "./GeneralLoader";
+
+const getInitialTheme = () => {
+  // Load from localStorage if available, fallback to light
+  const stored = localStorage.getItem("theme");
+  if (stored === "dark" || stored === "light") return stored;
+  return "light";
+};
 
 const App = ({ setNavigateFn }) => {
   const { user, loading, logout: authLogout } = useContext(AuthContext);
   const isAuthenticated = !!user;
 
-  const [currentPage, setCurrentPage] = useState('landing');
+  const [currentPage, setCurrentPage] = useState("landing");
   const [pageParams, setPageParams] = useState({});
-  const [theme, setTheme] = useState('light');
-  const [showLoader, setShowLoader] = useState(true); // ✅ New state for minimum delay
+  const [theme, setTheme] = useState(getInitialTheme());
+  const [showLoader, setShowLoader] = useState(true);
 
-  // ✅ Minimum 2 second loader delay
+  // Persist theme to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowLoader(false);
-    }, 2000); // Delay in ms
-
+    }, 2000);
     return () => clearTimeout(timer);
   }, []);
 
-  // Setup navigation function for parent (optional)
   useEffect(() => {
     if (setNavigateFn) {
       setNavigateFn(() => navigateTo);
     }
   }, [setNavigateFn]);
 
-  // Apply light/dark theme class
   useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove("dark");
     }
   }, [theme]);
 
-  // Auto-navigate to home if user is already authenticated
   useEffect(() => {
-    if (user && currentPage === 'landing') {
-      setCurrentPage('home');
+    if (user && currentPage === "landing") {
+      setCurrentPage("home");
     }
   }, [user]);
 
@@ -57,22 +64,22 @@ const App = ({ setNavigateFn }) => {
   };
 
   const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
   };
 
   const logout = async () => {
     try {
-      await authLogout(); // Firebase + backend logout
-      navigateTo('landing');
+      await authLogout();
+      navigateTo("landing");
       setPageParams({});
     } catch (err) {
-      console.error('Logout failed:', err);
+      console.error("Logout failed:", err);
     }
   };
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'landing':
+      case "landing":
         return (
           <LandingPage
             navigateTo={navigateTo}
@@ -82,7 +89,7 @@ const App = ({ setNavigateFn }) => {
             logout={logout}
           />
         );
-      case 'auth':
+      case "auth":
         return (
           <AuthPage
             navigateTo={navigateTo}
@@ -90,7 +97,7 @@ const App = ({ setNavigateFn }) => {
             toggleTheme={toggleTheme}
           />
         );
-      case 'home':
+      case "home":
         return (
           <HomePage
             navigateTo={navigateTo}
@@ -100,7 +107,7 @@ const App = ({ setNavigateFn }) => {
             logout={logout}
           />
         );
-      case 'post-task':
+      case "post-task":
         return (
           <PostTaskPage
             navigateTo={navigateTo}
@@ -109,7 +116,7 @@ const App = ({ setNavigateFn }) => {
             logout={logout}
           />
         );
-      case 'task':
+      case "task":
         return (
           <TaskDetails
             navigateTo={navigateTo}
@@ -119,7 +126,7 @@ const App = ({ setNavigateFn }) => {
             logout={logout}
           />
         );
-      case 'chat':
+      case "chat":
         return (
           <ChatPage
             navigateTo={navigateTo}
@@ -129,7 +136,7 @@ const App = ({ setNavigateFn }) => {
             logout={logout}
           />
         );
-      case 'profile':
+      case "profile":
         return (
           <ProfilePage
             navigateTo={navigateTo}
@@ -152,11 +159,10 @@ const App = ({ setNavigateFn }) => {
     }
   };
 
-  // ✅ Loader while checking session or showing artificial delay
   if (loading || showLoader) {
     return (
       <div className="flex items-center justify-center h-screen w-screen">
-        <JugaadLoader />
+        <GeneralLoader theme={theme} />
       </div>
     );
   }

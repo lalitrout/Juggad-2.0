@@ -183,8 +183,9 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
         requirements: formData.requirements?.trim() || "",
         tags: selectedTags,
         postedBy: user.uid,
-        postedByName:
-          user?.displayName || user?.email?.split("@")[0] || "Anonymous",
+        postedByName: user?.displayName || user?.email?.split("@")[0] || "Anonymous",
+        postedByPhotoURL: user?.photoURL || null, // Added user's profile photo
+        acceptedBy: null, // Initialize as null, will be populated when someone accepts
         status: "open",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

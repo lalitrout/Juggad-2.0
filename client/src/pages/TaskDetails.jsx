@@ -1,21 +1,23 @@
-// src/pages/TaskDetails.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, MapPin, Clock, MessageCircle, Star, X } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
-import { Button } from "../components/ui/Button";
-import { Input } from "../components/Input";
+import TaskContent from "../components/TaskContent";
+import TaskModals from "../components/TaskModals";
 
-import { db } from "../firebase";
+import { auth, db } from "../firebase";
 import {
   doc,
   onSnapshot,
   runTransaction,
   setDoc,
   serverTimestamp,
+  getDoc,
+  updateDoc,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+
 
 const TaskDetails = ({
   navigateTo,
@@ -29,7 +31,7 @@ const TaskDetails = ({
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showConfirmApply, setShowConfirmApply] = useState(false);
-  const [otpError, setOtpError] = useState("");
+  const [otpType, setOtpType] = useState("start");
 
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,14 +41,31 @@ const TaskDetails = ({
   // --- helpers ---
   const toDate = (t) => (t?.toDate ? t.toDate() : t || null);
   const toISO = (t) => (t?.toDate ? t.toDate().toISOString() : t || null);
-  const initials = (name = "Member") =>
-    name
-      .trim()
-      .split(" ")
-      .map((s) => s[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
+
+  // Avatar component helper - same logic as ProfilePage
+  const createAvatar = (photoURL, displayName, size = "w-12 h-12") => {
+    const avatarLetter = displayName ? displayName[0]?.toUpperCase() : "U";
+
+    return photoURL ? (
+      <img
+        src={photoURL}
+        alt={displayName || "User"}
+        className={`${size} rounded-full object-cover border-2 border-blue-300 dark:border-blue-800 shadow`}
+        onError={(e) => {
+          // Fallback to letter avatar if image fails to load
+          e.target.style.display = "none";
+          const fallback = e.target.nextElementSibling;
+          if (fallback) fallback.style.display = "flex";
+        }}
+      />
+    ) : (
+      <div
+        className={`${size} rounded-full bg-blue-500 flex items-center justify-center text-lg font-bold text-white shadow`}
+      >
+        {avatarLetter}
+      </div>
+    );
+  };
 
   const mapTask = (snap) => {
     const d = snap.data() || {};
@@ -64,16 +83,23 @@ const TaskDetails = ({
       requirements: d.requirements || "",
       postedBy: d.postedBy || null,
       postedByName: d.postedByName || null,
+      postedByPhotoURL: d.postedByPhotoURL || null,
       acceptedBy: d.acceptedBy || null,
-
-      acceptedUser: {
-        name: d.acceptedBy?.name || "—",
-        uid: d.acceptedBy?.uid || null,
-        photoURL: d.acceptedBy?.photoURL || null,
-      },
-
-      poster: d.poster || {
+      // Fixed the acceptedUser mapping
+      acceptedUser: d.acceptedBy
+        ? {
+            name: d.acceptedBy.name || "User", // Fixed: was displayNameame
+            uid: d.acceptedBy.uid || null,
+            photoURL: d.acceptedBy.photoURL || null, // This should now work
+          }
+        : {
+            name: "User",
+            uid: null,
+            photoURL: null,
+          },
+      poster: {
         name: d.postedByName || "Member",
+        photoURL: d.postedByPhotoURL || null,
         rating: typeof d.posterRating === "number" ? d.posterRating : 4.5,
         reviews: typeof d.posterReviews === "number" ? d.posterReviews : 0,
         avatar: (d.postedByName || "MB")
@@ -83,30 +109,12 @@ const TaskDetails = ({
           .slice(0, 2)
           .toUpperCase(),
       },
-
       createdAt: toISO(d.createdAt),
       updatedAt: toISO(d.updatedAt),
       deadline: toISO(d.scheduledAt),
       scheduledAtDate: toDate(d.scheduledAt),
+      pin: d.pin || null,
     };
-  };
-
-  const formatIST = (date) => {
-    if (!date) return "—";
-    try {
-      const d = typeof date === "string" ? new Date(date) : date;
-      return d.toLocaleString("en-IN", {
-        timeZone: "Asia/Kolkata",
-        hour12: true,
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      });
-    } catch {
-      return "—";
-    }
   };
 
   // --- live fetch ---
@@ -150,6 +158,7 @@ const TaskDetails = ({
   }, [task, currentUid]);
 
   // --- Book (Apply) handler: open -> assigned ---
+
   const handleApplyConfirmed = async () => {
     try {
       const me = auth.currentUser;
@@ -157,7 +166,20 @@ const TaskDetails = ({
         navigateTo("login");
         return;
       }
-      // Keep poster UID handy for chat creation after transaction
+
+      // 🔹 Get latest user data from Firestore
+      const userRef = doc(db, "users", me.uid);
+      const userSnap = await getDoc(userRef);
+
+      let name = me.displayName || me.email?.split("@")[0] || "User";
+      let photoURL = me.photoURL || "";
+
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        name = userData.displayName || name;
+        photoURL = userData.photoURL || photoURL;
+      }
+
       const posterUid = task?.postedBy;
 
       await runTransaction(db, async (trx) => {
@@ -167,51 +189,56 @@ const TaskDetails = ({
 
         const data = tSnap.data();
 
-        // Only allow open -> assigned (your rules also enforce this)
         if (data.status !== "open") {
           throw new Error(`This task is already ${data.status}.`);
         }
 
+        const generatedPin = Math.floor(1000 + Math.random() * 9000).toString();
+
         trx.update(tRef, {
-          status: "assigned", // matches your rules enum
+          status: "assigned",
           acceptedBy: {
             uid: me.uid,
-            name: me.displayName || "Member",
-            photoURL: me.photoURL || "",
+            name,
+            photoURL,
             acceptedAt: serverTimestamp(),
           },
           updatedAt: serverTimestamp(),
-          // Keep postedBy as-is (string UID) – rules verify this
           postedBy: data.postedBy,
+          pin: generatedPin,
         });
       });
 
-      // ✅ Ensure a parent chat doc exists for this task → chatId === task.id
-      // This satisfies the chat rules so both participants can read/write messages.
-      if (posterUid && auth.currentUser?.uid) {
+      // 🔹 Create chat for communication
+      if (posterUid && me.uid) {
         await setDoc(
           doc(db, "chats", task.id),
           {
-            participants: [posterUid, auth.currentUser.uid],
+            participants: [posterUid, me.uid],
             taskId: task.id,
             lastMessage: "",
             lastMessageAt: serverTimestamp(),
           },
-          { merge: true } // safe to call multiple times
+          { merge: true }
         );
       }
 
-      // Optional optimistic UI
+      // 🔹 Update local state immediately for better UX
       setTask((prev) =>
         prev
           ? {
               ...prev,
               status: "assigned",
               acceptedBy: {
-                uid: auth.currentUser?.uid,
-                name: auth.currentUser?.displayName || "User",
-                photoURL: auth.currentUser?.photoURL || "",
+                uid: me.uid,
+                name,
+                photoURL,
                 acceptedAt: new Date().toISOString(),
+              },
+              acceptedUser: {
+                uid: me.uid,
+                name,
+                photoURL,
               },
             }
           : prev
@@ -224,224 +251,53 @@ const TaskDetails = ({
     }
   };
 
-  // ---------- Modals ----------
-  const OtpModal = ({ isOpen, onClose, title }) => {
-    const [otp, setOtp] = useState(["", "", "", ""]);
-    if (!isOpen) return null;
+  // --- OTP: start/complete logic with new pin for complete ---
+  const handleOtpSubmit = async (otp) => {
+    const enteredOtp = otp.join("");
+    if (enteredOtp.length !== 4) {
+      throw new Error("Please enter a valid 4-digit OTP");
+    }
 
-    const handleOtpSubmit = () => {
-      if (otp.every((digit) => digit.length === 1)) {
-        console.log("OTP Verified:", otp.join(""));
-        onClose();
-      } else {
-        setOtpError("Please enter a valid 4-digit OTP");
-      }
-    };
+    const tRef = doc(db, "tasks", task.id);
+    const tSnap = await getDoc(tRef);
+    if (!tSnap.exists()) throw new Error("Task not found");
 
-    return (
-      <div
-        className={`fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-40 transition-opacity duration-300 ${
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-      >
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {title}
-            </h3>
-            <button
-              onClick={onClose}
-              className="text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white"
-              aria-label="Close modal"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          <div className="mb-6">
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
-              Enter the 4-digit OTP to proceed
-            </p>
-            <div className="flex gap-3 justify-center mb-4">
-              {otp.map((digit, index) => (
-                <Input
-                  key={index}
-                  type="text"
-                  maxLength="1"
-                  className="w-12 h-12 text-center text-xl font-semibold border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-emerald-500 dark:focus:border-blue-400"
-                  value={digit}
-                  onChange={(e) => {
-                    const newOtp = [...otp];
-                    newOtp[index] = e.target.value;
-                    setOtp(newOtp);
-                    setOtpError("");
-                    if (e.target.value && index < 3) {
-                      const next = document.getElementById(`otp-${index + 1}`);
-                      if (next) next.focus();
-                    }
-                  }}
-                  id={`otp-${index}`}
-                />
-              ))}
-            </div>
-            {otpError && (
-              <p className="text-sm text-red-600 dark:text-red-400 text-center">
-                {otpError}
-              </p>
-            )}
-          </div>
-          <div className="flex gap-3">
-            <Button
-              variant="secondary"
-              onClick={onClose}
-              className="flex-1 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-md px-6 py-3"
-            >
-              Cancel
-            </Button>
-            <Button
-              className="flex-1 bg-gradient-to-r from-emerald-500 to-blue-500 dark:from-emerald-600 dark:to-blue-600 text-white font-medium rounded-md px-6 py-3"
-              onClick={handleOtpSubmit}
-            >
-              Verify
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
+    const data = tSnap.data();
+    if (enteredOtp !== data.pin) {
+      throw new Error("Incorrect PIN. Please try again.");
+    }
+
+    if (otpType === "start" && data.status === "assigned") {
+      // Move to in_progress and generate a new PIN for completion
+      const newPin = Math.floor(1000 + Math.random() * 9000).toString();
+      await updateDoc(tRef, {
+        status: "in_progress",
+        updatedAt: serverTimestamp(),
+        pin: newPin,
+      });
+    } else if (otpType === "complete" && data.status === "in_progress") {
+      // Complete the task
+      await updateDoc(tRef, {
+        status: "completed",
+        updatedAt: serverTimestamp(),
+        completedAt: serverTimestamp(), // Track completion time
+      });
+    }
   };
 
-  const RatingModal = ({ isOpen, onClose }) => {
-    const [rating, setRating] = useState(0);
-    const [comment, setComment] = useState("");
-    if (!isOpen) return null;
-
-    return (
-      <div
-        className={`fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-40 transition-opacity duration-300 ${
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-      >
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Rate & Review
-            </h3>
-            <button
-              onClick={onClose}
-              className="text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white"
-              aria-label="Close modal"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          <div className="mb-6">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                  {task?.poster?.avatar || "MB"}
-                </span>
-              </div>
-              <h4 className="font-semibold text-gray-900 dark:text-white">
-                {task?.poster?.name || "Member"}
-              </h4>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                Rating
-              </label>
-              <div className="flex justify-center gap-2 mb-4">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    onClick={() => setRating(star)}
-                    className={`text-2xl ${
-                      star <= rating
-                        ? "text-yellow-400"
-                        : "text-gray-300 dark:text-gray-500"
-                    } hover:text-yellow-400`}
-                  >
-                    <Star fill="currentColor" />
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                Comment (optional)
-              </label>
-              <textarea
-                placeholder="Share your experience..."
-                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <Button
-              variant="secondary"
-              onClick={onClose}
-              className="flex-1 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-md px-6 py-3"
-            >
-              Skip
-            </Button>
-            <Button
-              className="flex-1 bg-gradient-to-r from-emerald-500 to-blue-500 dark:from-emerald-600 dark:to-blue-600 text-white font-medium rounded-md px-6 py-3"
-              onClick={() => {
-                console.log("Review Submitted:", { rating, comment });
-                onClose();
-              }}
-            >
-              Submit Review
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
+  // Handler functions for TaskContent
+  const handleApply = () => setShowConfirmApply(true);
+  const handleStartTask = () => {
+    setOtpType("start");
+    setShowOtpModal(true);
   };
-
-  const ConfirmApplyModal = ({ isOpen, onCancel, onConfirm }) => {
-    if (!isOpen) return null;
-    return (
-      <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-40">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Apply for this task?
-            </h3>
-            <button
-              onClick={onCancel}
-              className="text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white"
-              aria-label="Close"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          <p className="text-gray-700 dark:text-gray-300 mb-6">
-            We’ll mark this task as assigned to you and notify the poster.
-          </p>
-          <div className="flex gap-3">
-            <Button
-              variant="secondary"
-              onClick={onCancel}
-              className="flex-1 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-md px-6 py-3"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={onConfirm}
-              className="flex-1 bg-gradient-to-r from-emerald-500 to-blue-500 dark:from-emerald-600 dark:to-blue-600 text-white font-medium rounded-md px-6 py-3"
-            >
-              Yes, apply
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
+  const handleCompleteTask = () => {
+    setOtpType("complete");
+    setShowOtpModal(true);
   };
+  const handleShowRating = () => setShowRatingModal(true);
 
-  // ------- UI -------
+  // ------- Main UI -------
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
       <Header
@@ -458,7 +314,7 @@ const TaskDetails = ({
           <div className="flex items-center gap-4 mb-8">
             <button
               onClick={() => navigateTo("home")}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               aria-label="Back to home"
             >
               <ArrowLeft
@@ -471,7 +327,7 @@ const TaskDetails = ({
             </h1>
           </div>
 
-          {/* Loading / not found / error */}
+          {/* Loading state */}
           {loading && (
             <div
               className={`${
@@ -479,319 +335,69 @@ const TaskDetails = ({
               } rounded-xl shadow-md p-6 animate-pulse`}
             >
               <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-4" />
-              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-64" />
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-64 mb-2" />
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-48" />
             </div>
           )}
 
+          {/* Task not found */}
           {!loading && (notFound || !task) && !error && (
             <div className="p-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 text-center">
               <p className="text-gray-700 dark:text-gray-300">
                 Task not found.
               </p>
+              <button
+                onClick={() => navigateTo("home")}
+                className="mt-4 text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Return to Home
+              </button>
             </div>
           )}
 
+          {/* Error state */}
           {error && (
-            <div className="p-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 text-center">
-              <p className="text-red-600 dark:text-red-400">{error}</p>
+            <div className="p-6 bg-white dark:bg-gray-800 rounded-xl border border-red-200 dark:border-red-700 text-center">
+              <p className="text-red-600 dark:text-red-400 mb-2">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Try Again
+              </button>
             </div>
           )}
 
+          {/* Task content */}
           {!loading && task && (
-            <>
-              {/* Task Info */}
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6 sm:p-8 mb-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                    ₹{Number(task.budget).toLocaleString("en-IN")}
-                  </div>
-                  <span
-                    className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      task.status === "open"
-                        ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300"
-                        : task.status === "assigned"
-                        ? "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300"
-                        : task.status === "completed"
-                        ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-300"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300"
-                    }`}
-                  >
-                    {task.status}
-                  </span>
-                </div>
-
-                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">
-                  {task.title}
-                </h2>
-
-                <div className="flex flex-wrap gap-4 text-gray-600 dark:text-gray-300 mb-4">
-                  <div className="flex items-center gap-2">
-                    <MapPin size={16} />
-                    <span>{task.location}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock size={16} />
-                    <span>
-                      Due: {formatIST(task.deadline || task.scheduledAtDate)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2 mb-6">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold">
-                    {task.category}
-                  </span>
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                      task.urgency === "high"
-                        ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300"
-                        : "bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300"
-                    }`}
-                  >
-                    {task.urgency} urgency
-                  </span>
-                  {task.negotiable && (
-                    <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 text-xs font-semibold">
-                      Negotiable
-                    </span>
-                  )}
-                  {task.tags?.map((tag, i) => (
-                    <span
-                      key={i}
-                      className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="mb-6">
-                  <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                    Description
-                  </h3>
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    {task.description}
-                  </p>
-                </div>
-
-                {task.requirements && (
-                  <div className="mb-6">
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                      Requirements
-                    </h3>
-                    <p className="text-gray-700 dark:text-gray-300">
-                      {task.requirements}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Posted by */}
-              {(() => {
-                const uid = auth.currentUser?.uid;
-                const isPoster = uid && task.postedBy === uid;
-                const hasAssignee = !!task.acceptedBy;
-                const isAssignee = uid && task.acceptedBy?.uid === uid;
-
-                const posterName = isPoster ? "You" : task.poster?.name;
-                const assigneeName = isAssignee ? "You" : task.acceptedBy?.name;
-
-                return (
-                  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6 sm:p-8 mb-6">
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
-                      {isPoster ? "Posted by You" : "Posted by"}
-                    </h3>
-
-                    {/* Posted by row */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-4">
-                        {/* Poster avatar */}
-                        <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-800 rounded-full flex items-center justify-center overflow-hidden">
-                          {task.poster?.avatar ? (
-                            <span className="text-emerald-700 dark:text-emerald-300 font-semibold">
-                              {task.poster.avatar}
-                            </span>
-                          ) : (
-                            <span className="text-emerald-700 dark:text-emerald-300 font-semibold">
-                              {initials(task.poster?.name)}
-                            </span>
-                          )}
-                        </div>
-
-                        <div>
-                          <h4 className="font-semibold text-gray-900 dark:text-white">
-                            {posterName}
-                          </h4>
-                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                            <Star
-                              size={16}
-                              className="text-yellow-400"
-                              fill="currentColor"
-                            />
-                            <span>
-                              {task.poster?.rating ?? 4.5} (
-                              {task.poster?.reviews ?? 0} reviews)
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Message button to poster (hide if you are the poster) */}
-                      {(isPoster || isAssignee) && (
-                        <Button
-                          onClick={() =>
-                            navigateTo("chat", { chatId: task.id })
-                          }
-                          className="border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-md px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                        >
-                          <MessageCircle size={16} />
-                          Message
-                        </Button>
-                      )}
-                    </div>
-
-                    {/* Accepted by row (only when assigned) */}
-                    {hasAssignee && (
-                      <>
-                        <div className="h-px w-full bg-gray-200 dark:bg-gray-700 my-4" />
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            {/* Assignee avatar */}
-                            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center overflow-hidden">
-                              <span className="text-blue-800 dark:text-blue-300 font-semibold">
-                                {(task.acceptedBy?.name || "Member")
-                                  .trim()
-                                  .charAt(0)
-                                  .toUpperCase()}
-                              </span>
-                            </div>
-
-                            <div>
-                              <h4 className="font-semibold text-gray-900 dark:text-white">
-                                Accepted by {assigneeName}
-                              </h4>
-                              {/* Optional: show a small chip if it's you */}
-                              {isAssignee && (
-                                <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300">
-                                  You are the provider
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Message button to assignee (only for poster) */}
-                          {isPoster && (
-                            <Button
-                              onClick={() =>
-                                navigateTo("chat", { chatId: task.id })
-                              }
-                              className="border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-md px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                            >
-                              <MessageCircle size={16} />
-                              Message
-                            </Button>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* Actions - Provider side */}
-              {(() => {
-                const uid = auth.currentUser?.uid;
-                const isOpen = task.status === "open";
-                const isAssigned = task.status === "assigned";
-                const isAcceptedUser = !!uid && task.acceptedBy?.uid === uid;
-
-                if (userRole !== "provider") return null;
-
-                return (
-                  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6 sm:p-8 mb-6">
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
-                      Apply for this task
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-300 mb-4">
-                      Interested in helping? Confirm to book this task.
-                    </p>
-                    <div className="flex gap-3">
-                      {isOpen && (
-                        <Button
-                          className="flex-1 bg-gradient-to-r from-emerald-500 to-blue-500 dark:from-emerald-600 dark:to-blue-600 text-white font-medium rounded-md px-6 py-3 hover:from-emerald-600 hover:to-blue-600 dark:hover:from-emerald-700 dark:hover:to-blue-700 min-h-14"
-                          onClick={() => setShowConfirmApply(true)}
-                        >
-                          Apply Now
-                        </Button>
-                      )}
-
-                      {isAssigned && (
-                        <Button
-                          disabled
-                          className="flex-1 bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-md px-6 py-3 min-h-14 cursor-not-allowed"
-                        >
-                          {isAcceptedUser ? "Booked (You)" : "Booked"}
-                        </Button>
-                      )}
-
-                      <Button className="border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-md px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700">
-                        Save for Later
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Example: Provider progress only for accepted user (optional UI) */}
-              {userRole === "provider" &&
-                task.status === "assigned" &&
-                auth.currentUser?.uid &&
-                task.acceptedBy?.uid === auth.currentUser.uid && (
-                  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6 sm:p-8">
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
-                      Next steps
-                    </h3>
-                    <div className="space-y-3">
-                      <Button
-                        onClick={() => setShowOtpModal(true)}
-                        className="w-full bg-gradient-to-r from-emerald-500 to-blue-500 dark:from-emerald-600 dark:to-blue-600 text-white font-medium rounded-md px-6 py-3 min-h-14"
-                      >
-                        Start Task (Enter OTP)
-                      </Button>
-                      <Button
-                        onClick={() => setShowOtpModal(true)}
-                        className="w-full bg-gradient-to-r from-emerald-500 to-blue-500 dark:from-emerald-600 dark:to-blue-600 text-white font-medium rounded-md px-6 py-3 min-h-14"
-                      >
-                        Complete Task (Enter OTP)
-                      </Button>
-                      <Button
-                        onClick={() => setShowRatingModal(true)}
-                        className="w-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-md px-6 py-3 min-h-14"
-                      >
-                        Rate & Review
-                      </Button>
-                    </div>
-                  </div>
-                )}
-            </>
+            <TaskContent
+              task={task}
+              userRole={userRole}
+              currentUid={currentUid}
+              navigateTo={navigateTo}
+              theme={theme}
+              createAvatar={createAvatar}
+              onApply={handleApply}
+              onStartTask={handleStartTask}
+              onCompleteTask={handleCompleteTask}
+              onShowRating={handleShowRating}
+            />
           )}
         </div>
       </main>
 
       {/* Modals */}
-      <OtpModal
-        isOpen={showOtpModal}
-        onClose={() => setShowOtpModal(false)}
-        title="Verify Task Progress"
-      />
-      <RatingModal
-        isOpen={showRatingModal}
-        onClose={() => setShowRatingModal(false)}
-      />
-      <ConfirmApplyModal
-        isOpen={showConfirmApply}
-        onCancel={() => setShowConfirmApply(false)}
-        onConfirm={handleApplyConfirmed}
+      <TaskModals
+        showOtpModal={showOtpModal}
+        setShowOtpModal={setShowOtpModal}
+        showRatingModal={showRatingModal}
+        setShowRatingModal={setShowRatingModal}
+        showConfirmApply={showConfirmApply}
+        setShowConfirmApply={setShowConfirmApply}
+        otpType={otpType}
+        task={task}
+        onOtpSubmit={handleOtpSubmit}
+        onApplyConfirmed={handleApplyConfirmed}
       />
 
       <BottomNav navigateTo={navigateTo} currentPage="task" theme={theme} />

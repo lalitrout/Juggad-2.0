@@ -1,0 +1,32 @@
+.general-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh; /* full viewport height for centering */
+  width: 100vw;
+  background: #fff; /* default light background */
+}
+
+.general-loader--dark {
+  background: #18181b;
+}
+
+.general-loader__spinner {
+  width: 48px;
+  height: 48px;
+  border: 6px solid #e0e0e0;
+  border-top: 6px solid #20b2aa;
+  border-radius: 50%;
+  animation: general-loader-spin 1s linear infinite;
+}
+
+.general-loader--dark .general-loader__spinner {
+  border: 6px solid #333;
+  border-top: 6px solid #20b2aa;
+}
+
+@keyframes general-loader-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

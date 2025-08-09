@@ -30,7 +30,7 @@ const TaskCard = ({ task, navigateTo, theme, currentUserId }) => {
   // Status pill (tuned for better contrast in dark mode)
   const statusPill = (() => {
     const base =
-      "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
+      "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap";
     const light = {
       open: "bg-gray-100 text-gray-800",
       assigned: "bg-emerald-100 text-emerald-800",

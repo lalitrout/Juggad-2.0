@@ -1,16 +1,15 @@
 // index.js (ESM)
+import dotenv from 'dotenv';
+dotenv.config();
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import fs from 'fs';
 import http from 'http';
 import { Server } from 'socket.io';
-
-
+import profilePhotoRoute from "./profilePhotoRoute.js";
 import admin from './firebaseAdmin.js'; // your firebase-admin initializer
 
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -38,6 +37,8 @@ if (
 
 // ---------- Basic routes (unchanged) ----------
 app.get('/', (_req, res) => res.send('Backend is working!'));
+
+app.use('/api/profile', profilePhotoRoute);
 
 app.post('/sessionLogin', async (req, res) => {
   const { idToken } = req.body;

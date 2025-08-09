@@ -16,7 +16,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 
 export const AuthContext = createContext();
 
@@ -41,6 +41,34 @@ export const AuthProvider = ({ children, navigateTo }) => {
       await axios.post('http://localhost:5000/logout', {}, { withCredentials: true });
     } catch (err) {
       console.error('Failed to clear session cookie:', err?.message || err);
+    }
+  };
+
+  // ---------- Photo Upload Helper (using your backend API) ----------
+  const uploadProfilePhoto = async (file) => {
+    try {
+      const formData = new FormData();
+      formData.append('photo', file);
+
+      const response = await axios.post(
+        'http://localhost:5000/api/profile/photo',
+        formData,
+        {
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
+      if (response.data && response.data.url) {
+        return response.data.url;
+      } else {
+        throw new Error('No URL returned from upload');
+      }
+    } catch (error) {
+      console.error('Profile photo upload failed:', error);
+      throw new Error('Failed to upload profile picture');
     }
   };
 
@@ -134,7 +162,10 @@ export const AuthProvider = ({ children, navigateTo }) => {
       }
 
       const userRef = doc(db, 'users', firebaseUser.uid);
-      await setDoc(userRef, { role }, { merge: true });
+      await setDoc(userRef, { 
+        role,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
 
       setAuthError(null);
     } catch (error) {
@@ -145,32 +176,59 @@ export const AuthProvider = ({ children, navigateTo }) => {
   };
 
   // ---------- Email Registration ----------
- const registerWithEmail = async (email, password, role, name) => {
-  try {
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    const firebaseUser = result.user;
+  const registerWithEmail = async (email, password, role, name, additionalData = {}) => {
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = result.user;
 
-    await updateProfile(firebaseUser, {
-      displayName: name,
-    });
+      // Set session cookie first
+      const idToken = await firebaseUser.getIdToken();
+      await setSessionCookie(idToken);
 
-    const idToken = await firebaseUser.getIdToken();
-    await setSessionCookie(idToken);
+      let photoURL = null;
 
-    const userRef = doc(db, 'users', firebaseUser.uid);
-    await setDoc(userRef, {
-      role,
-      displayName: name,
-    }, { merge: true });
+      // Upload profile picture if provided (after setting session)
+      if (additionalData.profilePic) {
+        try {
+          photoURL = await uploadProfilePhoto(additionalData.profilePic);
+        } catch (uploadError) {
+          console.warn('Profile picture upload failed:', uploadError);
+          // Continue with registration even if upload fails
+        }
+      }
 
-    setAuthError(null);
-  } catch (error) {
-    console.error('Email Registration Error:', error);
-    setAuthError('Registration failed: ' + error.message);
-    throw error;
-  }
-};
+      // Update Firebase Auth profile
+      await updateProfile(firebaseUser, {
+        displayName: name,
+        photoURL: photoURL,
+      });
 
+      // Save to Firestore
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      const firestoreData = {
+        role,
+        displayName: name,
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Add optional fields if provided
+      if (additionalData.phoneNumber) {
+        firestoreData.phoneNumber = additionalData.phoneNumber;
+      }
+
+      if (photoURL) {
+        firestoreData.photoURL = photoURL;
+      }
+
+      await setDoc(userRef, firestoreData, { merge: true });
+
+      setAuthError(null);
+    } catch (error) {
+      console.error('Email Registration Error:', error);
+      setAuthError('Registration failed: ' + error.message);
+      throw error;
+    }
+  };
 
   // ---------- Email Sign-in ----------
   const signInWithEmail = async (email, password) => {
@@ -189,56 +247,111 @@ export const AuthProvider = ({ children, navigateTo }) => {
     }
   };
 
+  // ---------- Update Profile (enhanced method) ----------
+  const updateUserProfile = async (profileData, profilePicFile = null) => {
+    try {
+      if (!auth.currentUser) {
+        throw new Error('No authenticated user');
+      }
+
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      
+      let photoURL = profileData.photoURL;
+
+      // Upload new profile picture if provided
+      if (profilePicFile) {
+        try {
+          photoURL = await uploadProfilePhoto(profilePicFile);
+        } catch (uploadError) {
+          console.warn('Profile picture upload failed:', uploadError);
+          throw new Error('Failed to upload profile picture');
+        }
+      }
+
+      // Prepare update data
+      const updateData = {
+        ...profileData,
+        photoURL,
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Update Firestore
+      await updateDoc(userRef, updateData);
+
+      // Update Firebase Auth profile if displayName or photoURL changed
+      const authUpdateData = {};
+      if (profileData.displayName) {
+        authUpdateData.displayName = profileData.displayName;
+      }
+      if (photoURL) {
+        authUpdateData.photoURL = photoURL;
+      }
+
+      if (Object.keys(authUpdateData).length > 0) {
+        await updateProfile(auth.currentUser, authUpdateData);
+      }
+
+      // Update local user state
+      setUser(prev => ({ ...prev, ...updateData }));
+
+      return updateData;
+    } catch (error) {
+      console.error('Profile update error:', error);
+      throw error;
+    }
+  };
+
   // ---------- Logout ----------
   const logout = async () => {
- const result = await Swal.fire({
-  title: 'Are you sure?',
-  text: 'Do you really want to logout?',
-  icon: 'warning',
-  showCancelButton: true,
-  showConfirmButton: true,
-  confirmButtonText: 'Yes, Logout',
-  cancelButtonText: 'Cancel',
-  customClass: {
-    confirmButton: 'bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700',
-    cancelButton: 'bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400',
-  }
-});
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: 'Do you really want to logout?',
+      icon: 'warning',
+      showCancelButton: true,
+      showConfirmButton: true,
+      confirmButtonText: 'Yes, Logout',
+      cancelButtonText: 'Cancel',
+      customClass: {
+        confirmButton: 'bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700',
+        cancelButton: 'bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400',
+      }
+    });
 
-  if (result.isConfirmed) {
-    try {
-      await signOut(auth);
-      await clearSessionCookie();
-      setUser(null);
-      setAuthError(null);
-      navigateTo && navigateTo('auth');
+    if (result.isConfirmed) {
+      try {
+        await signOut(auth);
+        await clearSessionCookie();
+        setUser(null);
+        setAuthError(null);
+        navigateTo && navigateTo('auth');
 
+        Swal.fire({
+          icon: 'success',
+          title: 'Logged Out',
+          text: 'You have been logged out successfully.',
+          timer: 2000,
+          showConfirmButton: false,
+        });
+
+      } catch (error) {
+        console.error('Logout Error:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Logout Failed',
+          text: 'Something went wrong while logging out.',
+        });
+      }
+    } else {
       Swal.fire({
-        icon: 'success',
-        title: 'Logged Out',
-        text: 'You have been logged out successfully.',
-        timer: 2000,
-        showConfirmButton: false,
-      });
-
-    } catch (error) {
-      console.error('Logout Error:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Logout Failed',
-        text: 'Something went wrong while logging out.',
-      });
-    }
-  } else {
-    Swal.fire({
         icon: 'success',
         title: 'Logging out aborted',
         text: 'You are with us.',
         timer: 2000,
         showConfirmButton: false,
       });
-  }
-};
+    }
+  };
+
   const value = useMemo(
     () => ({
       user,
@@ -247,6 +360,8 @@ export const AuthProvider = ({ children, navigateTo }) => {
       signInWithGoogle,
       signInWithEmail,
       registerWithEmail,
+      updateUserProfile,
+      uploadProfilePhoto,
       logout,
     }),
     [user, loading, authError]

@@ -1,11 +1,9 @@
-// Header.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/Button";
 import {
   HandHeart,
   Home,
   MessageCircle,
-  User,
   Sun,
   Moon,
   Loader2,
@@ -69,8 +67,13 @@ const Header = ({
 
   // Live UID
   const [uid, setUid] = useState(auth.currentUser?.uid || null);
+  // Store full user object for DP
+  const [userObj, setUserObj] = useState(auth.currentUser || null);
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUid(u?.uid || null));
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUid(u?.uid || null);
+      setUserObj(u || null); // <-- update user object
+    });
     return () => unsub();
   }, [auth]);
 
@@ -321,6 +324,25 @@ const Header = ({
     }
   };
 
+  // Avatar rendering logic for header
+  const displayName =
+    userObj?.displayName ||
+    userObj?.email?.split("@")[0] ||
+    "User";
+  const photoURL = userObj?.photoURL;
+  const avatarLetter = displayName[0]?.toUpperCase() || "U";
+  const ProfileAvatar = photoURL ? (
+    <img
+      src={photoURL}
+      alt={displayName}
+      className="w-8 h-8 rounded-full object-cover border-2 border-blue-300 dark:border-blue-800 shadow"
+    />
+  ) : (
+    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-lg font-bold text-white shadow">
+      {avatarLetter}
+    </div>
+  );
+
   return (
     <header className={`sticky top-0 z-50 ${navClass}`}>
       <div className={containerClass}>
@@ -434,16 +456,17 @@ const Header = ({
                     )}
                   </div>
 
+                  {/* Profile avatar instead of icon */}
                   <button
                     onClick={() => navigateTo("profile")}
-                    className={`hidden md:flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                    className={`hidden md:flex items-center px-3 py-2 rounded-lg transition-colors ${
                       currentPage === "profile"
                         ? "bg-primary-50 text-primary-600 dark:bg-gray-800 dark:text-primary-400"
                         : "text-gray-600 hover:text-primary-600 dark:text-gray-300 dark:hover:text-primary-400"
                     }`}
                   >
-                    <User size={20} />
-                    <span>Profile</span>
+                    {ProfileAvatar}
+                    <span className="ml-2">Profile</span>
                   </button>
 
                   <Button

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Send, Paperclip, Image, Star } from "lucide-react";
 import NavHeader from "../components/Header";
-
 import { useChat } from "../hooks/useChat";
 import {
   setDoc,
@@ -26,7 +25,6 @@ function initials(name = "Member") {
 
 function formatTime(ts) {
   try {
-    // ts can be a Firestore Timestamp, a Date, or a string ISO
     const d =
       ts?.toDate?.() instanceof Date
         ? ts.toDate()
@@ -54,7 +52,6 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
   const inputWrapperRef = useRef(null);
   const profileHeaderRef = useRef(null);
 
-  // ---- Realtime chat (Socket + Firestore history)
   const participants = useMemo(() => {
     if (!task) return [];
     const posterUid = task?.postedBy || null;
@@ -63,13 +60,12 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
   }, [task]);
 
   const { messages, typing, sendMessage, setIsTyping } = useChat(chatId, {
-    participants, // <-- removed "as string[]" (TS-only)
+    participants,
     taskId: chatId,
-    useSocket: true, // keep typing presence
+    useSocket: true,
     pageSize: 500,
   });
 
-  // ---- Subscribe to the task doc (to show header/context)
   useEffect(() => {
     if (!chatId) {
       setTask(null);
@@ -93,32 +89,34 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
     return () => unsub();
   }, [chatId]);
 
-  // ---- Compute "other" participant
-  const otherUser = useMemo(() => {
-    if (!task || !myUid) return { name: "Member", rating: 4.8, online: true };
-    const iAmPoster = task.postedBy === myUid;
-    if (iAmPoster) {
-      const name = task.acceptedBy?.name || "Member";
-      return {
-        name,
-        avatar: initials(name),
-        rating: 4.8,
-        online: true,
-        taskId: task.id,
-      };
-    } else {
-      const name = task.postedByName || "Member";
-      return {
-        name,
-        avatar: initials(name),
-        rating: task.poster?.rating ?? 4.8,
-        online: true,
-        taskId: task.id,
-      };
+  // ---- Avatar logic based on Firestore structure
+  let headerName = "User";
+  let photoURL = null;
+  let headerRating = 4.8;
+  if (task && myUid) {
+    if (task.postedBy === myUid) {
+      headerName = task.acceptedBy?.name || "User";
+      photoURL = task.acceptedBy?.photoURL || null;
+      headerRating = 4.8; // You can add acceptedBy.rating if available
+    } else if (task.acceptedBy?.uid === myUid) {
+      headerName = task.postedByName || "User";
+      photoURL = task.postedByPhotoURL || null;
+      headerRating = 4.8; // You can add poster.rating if available
     }
-  }, [task, myUid]);
+  }
+  const avatarLetter = headerName[0]?.toUpperCase() || "U";
+  const headerAvatar = photoURL ? (
+    <img
+      src={photoURL}
+      alt={headerName}
+      className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-blue-300 dark:border-blue-800 shadow"
+    />
+  ) : (
+    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-500 flex items-center justify-center text-xs sm:text-sm font-bold text-white shadow">
+      {avatarLetter}
+    </div>
+  );
 
-  // ---- Scroll to bottom on new messages
   useEffect(() => {
     const t = setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -126,7 +124,6 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
     return () => clearTimeout(t);
   }, [messages]);
 
-  // ---- Keyboard / viewport handling (mobile)
   useEffect(() => {
     const inputWrapper = inputWrapperRef.current;
     const messagesContainer = document.querySelector(".messages-container");
@@ -182,7 +179,6 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
     };
   }, []);
 
-  // ---- Align sticky task context with header height
   useEffect(() => {
     const profileHeader = profileHeaderRef.current;
     const taskContext = document.querySelector(".task-context");
@@ -191,18 +187,13 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
     }
   }, []);
 
-  // ---- Send handler
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!message.trim() || !chatId) return;
 
     const auth = getAuth();
     const currentUserUid = auth.currentUser.uid;
-
-    // 1️⃣ Ensure chat document exists (with participants)
-    const participants = [task?.postedBy, task?.acceptedBy?.uid].filter(
-      Boolean
-    );
+    const participants = [task?.postedBy, task?.acceptedBy?.uid].filter(Boolean);
 
     await setDoc(
       doc(db, "chats", chatId),
@@ -216,7 +207,6 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
       { merge: true }
     );
 
-    // 2️⃣ Add the message to messages sub-collection
     await addDoc(collection(db, "chats", chatId, "messages"), {
       text: message.trim(),
       senderUid: currentUserUid,
@@ -226,7 +216,7 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
     setMessage("");
     setTimeout(() => messageInputRef.current?.focus(), 10);
   };
-  // ========== Chat List Page (minimal) ==========
+
   if (!chatId) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
@@ -258,11 +248,6 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
       </div>
     );
   }
-
-  // ========== Chat Conversation Page ==========
-  const headerAvatar = otherUser?.avatar || initials(otherUser?.name);
-  const headerName = otherUser?.name || "Member";
-  const headerRating = otherUser?.rating ?? 4.8;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 flex flex-col">
@@ -296,7 +281,6 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
                   {headerAvatar}
                 </span>
               </div>
-              {/* Online dot (placeholder true) */}
               <div className="absolute bottom-0 right-0 w-2 h-2 sm:w-3 sm:h-3 bg-green-500 rounded-full border border-white dark:border-gray-800" />
             </div>
             <div className="flex-1">
@@ -385,11 +369,6 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
               </div>
             );
           })}
-          {/* {typing && (
-            <div className="text-xs text-gray-500 dark:text-gray-400 px-3">
-              Typing…
-            </div>
-          )} */}
           <div ref={messagesEndRef} />
         </div>
       </div>
@@ -423,7 +402,6 @@ const ChatPage = ({ navigateTo, chatId, theme, toggleTheme, isLoggedIn }) => {
                 value={message}
                 onChange={(e) => {
                   setMessage(e.target.value);
-                  // typing indicator (debounced)
                   setIsTyping(true);
                   clearTimeout(window.__typingTimer);
                   window.__typingTimer = setTimeout(
