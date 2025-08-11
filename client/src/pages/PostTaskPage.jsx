@@ -1,5 +1,5 @@
 import { useState, useContext } from "react";
-import { ArrowLeft, FileText, MapPin, Tag, X } from "lucide-react";
+import { ArrowLeft, FileText, MapPin, Tag, X, Clock, DollarSign, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import { FaRupeeSign } from "react-icons/fa";
 import Header from "../components/Header";
 import { Button } from "../components/ui/Button";
@@ -36,6 +36,7 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
   const [selectedTags, setSelectedTags] = useState([]);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
 
   const availableTags = [
     "Physical Work",
@@ -51,32 +52,39 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
   ];
 
   const categories = [
-    "Cleaning",
-    "Delivery",
-    "Tech Support",
-    "Moving",
-    "Pet Care",
-    "Handyman",
-    "Tutoring",
-    "Shopping",
-    "Yard Work",
-    "Other",
+    { value: "Cleaning", icon: "🧹", desc: "House cleaning, office cleanup" },
+    { value: "Delivery", icon: "🚚", desc: "Package delivery, food delivery" },
+    { value: "Tech Support", icon: "💻", desc: "Computer help, software setup" },
+    { value: "Moving", icon: "📦", desc: "Furniture moving, relocation help" },
+    { value: "Pet Care", icon: "🐕", desc: "Pet sitting, dog walking" },
+    { value: "Handyman", icon: "🔧", desc: "Repairs, installations, fixes" },
+    { value: "Tutoring", icon: "📚", desc: "Academic help, skill teaching" },
+    { value: "Shopping", icon: "🛒", desc: "Grocery shopping, errands" },
+    { value: "Yard Work", icon: "🌱", desc: "Gardening, lawn maintenance" },
+    { value: "Other", icon: "✨", desc: "Custom tasks and services" },
   ];
 
   const durations = [
-    "30 minutes",
-    "1 hour",
-    "2 hours",
-    "Half-day",
-    "Full-day",
-    "Multiple days",
+    { value: "30 minutes", icon: "⚡" },
+    { value: "1 hour", icon: "🕐" },
+    { value: "2 hours", icon: "🕑" },
+    { value: "Half-day", icon: "🌅" },
+    { value: "Full-day", icon: "☀️" },
+    { value: "Multiple days", icon: "📅" },
   ];
 
   const budgetOptions = [
-    { value: "99", label: "₹99 Quick Task" },
-    { value: "349", label: "₹349 Most Popular" },
-    { value: "799", label: "₹799 Premium" },
-    { value: "custom", label: "Custom Amount" },
+    { value: "99", label: "₹99", subtitle: "Quick Task", popular: false, color: "bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-300" },
+    { value: "349", label: "₹349", subtitle: "Most Popular", popular: true, color: "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300" },
+    { value: "799", label: "₹799", subtitle: "Premium", popular: false, color: "bg-purple-50 border-purple-200 text-purple-700 dark:bg-purple-900/20 dark:border-purple-700 dark:text-purple-300" },
+    { value: "custom", label: "Custom", subtitle: "Set your own price", popular: false, color: "bg-gray-50 border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300" },
+  ];
+
+  const steps = [
+    { number: 1, title: "Task Details", icon: FileText, completed: false },
+    { number: 2, title: "Location & Time", icon: MapPin, completed: false },
+    { number: 3, title: "Budget", icon: DollarSign, completed: false },
+    { number: 4, title: "Additional Info", icon: Tag, completed: false },
   ];
 
   const validateForm = (data = formData) => {
@@ -377,8 +385,16 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
     setErrors({});
   };
 
+  const getStepProgress = () => {
+    let completed = 0;
+    if (formData.title && formData.description && formData.category) completed++;
+    if (formData.location) completed++;
+    if (formData.budget && (formData.budget !== "custom" || formData.customBudget)) completed++;
+    return Math.round((completed / 4) * 100);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-200">
       <Header
         navigateTo={navigateTo}
         currentPage="post-task"
@@ -389,377 +405,530 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
       />
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 pb-24 sm:pb-8 scroll-pb-24">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex items-center gap-4 mb-8">
-            <button
-              onClick={() => navigateTo("home")}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-              aria-label="Back to home"
-              disabled={isSubmitting}
-            >
-              <ArrowLeft
-                size={24}
-                className="text-gray-600 dark:text-gray-300"
-              />
-            </button>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-              Post a New Task
-            </h1>
+        <div className="max-w-4xl mx-auto">
+          {/* Header with Progress */}
+          <div className="mb-8">
+            <div className="flex items-center gap-4 mb-6">
+              <button
+                onClick={() => navigateTo("home")}
+                className="p-3 hover:bg-white dark:hover:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-all duration-200 hover:shadow-md"
+                aria-label="Back to home"
+                disabled={isSubmitting}
+              >
+                <ArrowLeft
+                  size={20}
+                  className="text-gray-600 dark:text-gray-300"
+                />
+              </button>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                  Post a New Task
+                </h1>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                  Get help with your tasks from nearby helpers
+                </p>
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Progress
+                </span>
+                <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                  {getStepProgress()}% Complete
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div
+                  className="bg-gradient-to-r from-emerald-500 to-blue-500 h-2 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${getStepProgress()}%` }}
+                ></div>
+              </div>
+            </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-8">
             {/* 1. Task Details */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6 sm:p-8">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <FileText size={20} />
-                1. Task Details
-              </h2>
-
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                  Task Title *
-                </label>
-                <Input
-                  type="text"
-                  name="title"
-                  placeholder="e.g., Help me move furniture to my new apartment"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  required
-                  disabled={isSubmitting}
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-emerald-500 dark:focus:border-blue-400 focus:ring focus:ring-emerald-500/10 dark:focus:ring-blue-400/10 min-h-14 disabled:opacity-50"
-                  aria-invalid={!!errors.title}
-                  aria-describedby={errors.title ? "title-error" : undefined}
-                />
-                {errors.title && (
-                  <p
-                    id="title-error"
-                    className="text-sm text-red-600 dark:text-red-400 mt-1 animate-pulse"
-                  >
-                    {errors.title}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm p-8 hover:shadow-md transition-all duration-200">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+                  <FileText size={24} className="text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    Task Details
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Tell us what you need help with
                   </p>
-                )}
+                </div>
               </div>
 
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                  Detailed Description *
-                </label>
-                <textarea
-                  name="description"
-                  placeholder="Provide a detailed description of what you need help with..."
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-emerald-500 dark:focus:border-blue-400 focus:ring focus:ring-emerald-500/10 dark:focus:ring-blue-400/10 min-h-[140px] disabled:opacity-50"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  required
-                  disabled={isSubmitting}
-                  aria-invalid={!!errors.description}
-                  aria-describedby={
-                    errors.description ? "description-error" : undefined
-                  }
-                />
-                {errors.description && (
-                  <p
-                    id="description-error"
-                    className="text-sm text-red-600 dark:text-red-400 mt-1 animate-pulse"
-                  >
-                    {errors.description}
-                  </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                    Category *
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">
+                    What do you need help with? *
                   </label>
-                  <select
-                    name="category"
-                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-emerald-500 dark:focus:border-blue-400 focus:ring focus:ring-emerald-500/10 dark:focus:ring-blue-400/10 min-h-14 disabled:opacity-50"
-                    value={formData.category}
+                  <Input
+                    type="text"
+                    name="title"
+                    placeholder="e.g., Help me move furniture to my new apartment"
+                    value={formData.title}
                     onChange={handleInputChange}
                     required
                     disabled={isSubmitting}
-                    aria-invalid={!!errors.category}
-                    aria-describedby={
-                      errors.category ? "category-error" : undefined
-                    }
-                  >
-                    <option value="">Select a category</option>
-                    {categories.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.category && (
-                    <p
-                      id="category-error"
-                      className="text-sm text-red-600 dark:text-red-400 mt-1 animate-pulse"
-                    >
-                      {errors.category}
-                    </p>
+                    className="w-full p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-emerald-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-emerald-500/20 dark:focus:ring-blue-400/20 focus:bg-white dark:focus:bg-gray-700 transition-all duration-200 disabled:opacity-50"
+                    aria-invalid={!!errors.title}
+                    aria-describedby={errors.title ? "title-error" : undefined}
+                  />
+                  {errors.title && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <AlertCircle size={16} className="text-red-500" />
+                      <p className="text-sm text-red-600 dark:text-red-400">
+                        {errors.title}
+                      </p>
+                    </div>
                   )}
                 </div>
 
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                    Estimated Duration
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">
+                    Detailed Description *
                   </label>
-                  <select
-                    name="duration"
-                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-emerald-500 dark:focus:border-blue-400 focus:ring focus:ring-emerald-500/10 dark:focus:ring-blue-400/10 min-h-14 disabled:opacity-50"
-                    value={formData.duration}
+                  <textarea
+                    name="description"
+                    placeholder="Provide more details about what you need help with, any specific requirements, and what the helper should expect..."
+                    className="w-full p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-emerald-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-emerald-500/20 dark:focus:ring-blue-400/20 focus:bg-white dark:focus:bg-gray-700 transition-all duration-200 min-h-[120px] resize-y disabled:opacity-50"
+                    value={formData.description}
                     onChange={handleInputChange}
+                    required
                     disabled={isSubmitting}
-                  >
-                    {["", ...durations].map((d) => (
-                      <option key={d} value={d}>
-                        {d || "Select duration"}
-                      </option>
-                    ))}
-                  </select>
+                    aria-invalid={!!errors.description}
+                    aria-describedby={errors.description ? "description-error" : undefined}
+                  />
+                  {errors.description && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <AlertCircle size={16} className="text-red-500" />
+                      <p className="text-sm text-red-600 dark:text-red-400">
+                        {errors.description}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">
+                      Category *
+                    </label>
+                    <div className="relative">
+                      <select
+                        name="category"
+                        className="w-full p-4 pr-12 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-emerald-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-emerald-500/20 dark:focus:ring-blue-400/20 focus:bg-white dark:focus:bg-gray-700 transition-all duration-200 disabled:opacity-50 appearance-none cursor-pointer"
+                        value={formData.category}
+                        onChange={handleInputChange}
+                        required
+                        disabled={isSubmitting}
+                        aria-invalid={!!errors.category}
+                        aria-describedby={errors.category ? "category-error" : undefined}
+                      >
+                        <option value="" className="text-gray-500">
+                          Choose a category for your task
+                        </option>
+                        {categories.map((category) => (
+                          <option key={category.value} value={category.value} className="py-2">
+                            {category.icon} {category.value} - {category.desc}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                        <svg className="w-5 h-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    </div>
+                    {formData.category && (
+                      <div className="mt-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
+                          <span className="text-lg">
+                            {categories.find(c => c.value === formData.category)?.icon}
+                          </span>
+                          <span className="font-medium">{formData.category}</span>
+                        </div>
+                        <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-1">
+                          {categories.find(c => c.value === formData.category)?.desc}
+                        </p>
+                      </div>
+                    )}
+                    {errors.category && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <AlertCircle size={16} className="text-red-500" />
+                        <p className="text-sm text-red-600 dark:text-red-400">
+                          {errors.category}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">
+                      Estimated Duration
+                    </label>
+                    <div className="relative">
+                      <select
+                        name="duration"
+                        className="w-full p-4 pr-12 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 focus:bg-white dark:focus:bg-gray-700 transition-all duration-200 disabled:opacity-50 appearance-none cursor-pointer"
+                        value={formData.duration}
+                        onChange={handleInputChange}
+                        disabled={isSubmitting}
+                      >
+                        <option value="" className="text-gray-500">
+                          Select estimated duration
+                        </option>
+                        {durations.map((duration) => (
+                          <option key={duration.value} value={duration.value} className="py-2">
+                            {duration.icon} {duration.value}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                        <svg className="w-5 h-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    </div>
+                    {formData.duration && (
+                      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                          <span className="text-lg">
+                            {durations.find(d => d.value === formData.duration)?.icon}
+                          </span>
+                          <span className="font-medium">{formData.duration}</span>
+                        </div>
+                        <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                          Expected time to complete this task
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* 2. Location & Timing */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6 sm:p-8">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <MapPin size={20} />
-                2. Location & Timing
-              </h2>
-
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                  Task Location *
-                </label>
-                <Input
-                  type="text"
-                  name="location"
-                  placeholder="Enter address or neighborhood"
-                  value={formData.location}
-                  onChange={handleInputChange}
-                  required
-                  disabled={isSubmitting}
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-emerald-500 dark:focus:border-blue-400 focus:ring focus:ring-emerald-500/10 dark:focus:ring-blue-400/10 min-h-14 disabled:opacity-50"
-                  aria-invalid={!!errors.location}
-                  aria-describedby={
-                    errors.location ? "location-error" : undefined
-                  }
-                />
-                {errors.location && (
-                  <p
-                    id="location-error"
-                    className="text-sm text-red-600 dark:text-red-400 mt-1 animate-pulse"
-                  >
-                    {errors.location}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm p-8 hover:shadow-md transition-all duration-200">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl">
+                  <MapPin size={24} className="text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    Location & Timing
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Where and when do you need help?
                   </p>
-                )}
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                    Preferred Date
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">
+                    Task Location *
                   </label>
                   <Input
-                    type="date"
-                    name="date"
-                    value={formData.date}
+                    type="text"
+                    name="location"
+                    placeholder="Enter your address or neighborhood (e.g., Bandra West, Mumbai)"
+                    value={formData.location}
                     onChange={handleInputChange}
+                    required
                     disabled={isSubmitting}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-emerald-500 dark:focus:border-blue-400 focus:ring focus:ring-emerald-500/10 dark:focus:ring-blue-400/10 min-h-14 disabled:opacity-50"
+                    className="w-full p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-emerald-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-emerald-500/20 dark:focus:ring-blue-400/20 focus:bg-white dark:focus:bg-gray-700 transition-all duration-200 disabled:opacity-50"
+                    aria-invalid={!!errors.location}
+                    aria-describedby={errors.location ? "location-error" : undefined}
                   />
+                  {errors.location && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <AlertCircle size={16} className="text-red-500" />
+                      <p className="text-sm text-red-600 dark:text-red-400">
+                        {errors.location}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                    Preferred Time
-                  </label>
-                  <Input
-                    type="time"
-                    name="time"
-                    value={formData.time}
-                    onChange={handleInputChange}
-                    disabled={isSubmitting}
-                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-emerald-500 dark:focus:border-blue-400 focus:ring focus:ring-emerald-500/10 dark:focus:ring-blue-400/10 min-h-14 disabled:opacity-50"
-                  />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Clock size={18} className="text-blue-600 dark:text-blue-400" />
+                      <label className="block text-sm font-medium text-gray-900 dark:text-white">
+                        Preferred Date
+                      </label>
+                    </div>
+                    <Input
+                      type="date"
+                      name="date"
+                      value={formData.date}
+                      onChange={handleInputChange}
+                      disabled={isSubmitting}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full p-3 border border-blue-200 dark:border-blue-700 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-all duration-200 disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Clock size={18} className="text-purple-600 dark:text-purple-400" />
+                      <label className="block text-sm font-medium text-gray-900 dark:text-white">
+                        Preferred Time
+                      </label>
+                    </div>
+                    <Input
+                      type="time"
+                      name="time"
+                      value={formData.time}
+                      onChange={handleInputChange}
+                      disabled={isSubmitting}
+                      className="w-full p-3 border border-purple-200 dark:border-purple-700 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-purple-500 dark:focus:border-purple-400 focus:ring-2 focus:ring-purple-500/20 dark:focus:ring-purple-400/20 transition-all duration-200 disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <Info size={20} className="text-amber-600 dark:text-amber-400 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-amber-800 dark:text-amber-300 mb-1">
+                        Flexible Scheduling
+                      </h4>
+                      <p className="text-sm text-amber-700 dark:text-amber-400">
+                        Date and time are optional. You can discuss and finalize the schedule with your helper later.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* 3. Pricing & Payment */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6 sm:p-8">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <FaRupeeSign size={20} />
-                3. Pricing & Payment
-              </h2>
-
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                  Budget Options
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                  {budgetOptions.map((option) => (
-                    <label
-                      key={option.value}
-                      className={`flex items-center gap-3 p-4 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer transition-colors duration-200 ${
-                        formData.budget === option.value
-                          ? "border-emerald-500 bg-emerald-50 dark:border-blue-600 dark:bg-gray-700"
-                          : "hover:bg-gray-50 dark:hover:bg-gray-700"
-                      } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      <input
-                        type="radio"
-                        name="budget"
-                        value={option.value}
-                        checked={formData.budget === option.value}
-                        onChange={handleInputChange}
-                        disabled={isSubmitting}
-                        className="text-emerald-600 focus:ring-emerald-500 dark:focus:ring-blue-400 disabled:opacity-50"
-                      />
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {option.label}
-                      </span>
-                    </label>
-                  ))}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm p-8 hover:shadow-md transition-all duration-200">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-xl">
+                  <FaRupeeSign size={24} className="text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    Budget & Payment
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Set your budget for this task
+                  </p>
                 </div>
               </div>
 
-              {formData.budget === "custom" && (
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                    Custom Amount *
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-4">
+                    Choose your budget
                   </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-5 text-gray-500 dark:text-gray-400">
-                      <FaRupeeSign size={16} />
-                    </span>
-                    <Input
-                      type="number"
-                      name="customBudget"
-                      placeholder="Enter amount"
-                      value={formData.customBudget}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {budgetOptions.map((option) => (
+                      <label
+                        key={option.value}
+                        className={`relative flex flex-col items-center p-6 border-2 rounded-2xl cursor-pointer transition-all duration-200 hover:shadow-lg transform hover:-translate-y-1 ${
+                          formData.budget === option.value
+                            ? `${option.color} border-current shadow-lg scale-105`
+                            : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-700"
+                        } ${isSubmitting ? 'opacity-50 cursor-not-allowed hover:transform-none' : ''}`}
+                      >
+                        {option.popular && (
+                          <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                            <span className="bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                              POPULAR
+                            </span>
+                          </div>
+                        )}
+                        <input
+                          type="radio"
+                          name="budget"
+                          value={option.value}
+                          checked={formData.budget === option.value}
+                          onChange={handleInputChange}
+                          disabled={isSubmitting}
+                          className="sr-only"
+                        />
+                        <div className="text-2xl font-bold text-current mb-2">
+                          {option.label}
+                        </div>
+                        <div className="text-sm text-current opacity-80 text-center">
+                          {option.subtitle}
+                        </div>
+                        {formData.budget === option.value && (
+                          <div className="absolute top-3 right-3">
+                            <CheckCircle2 size={20} className="text-current" />
+                          </div>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {formData.budget === "custom" && (
+                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 rounded-2xl p-6 border border-gray-200 dark:border-gray-600">
+                    <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">
+                      Enter your custom amount *
+                    </label>
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                        <FaRupeeSign size={18} />
+                      </div>
+                      <Input
+                        type="number"
+                        name="customBudget"
+                        placeholder="Enter amount (e.g., 500)"
+                        value={formData.customBudget}
+                        onChange={handleInputChange}
+                        disabled={isSubmitting}
+                        min="1"
+                        step="1"
+                        className="w-full p-4 pl-12 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-lg font-medium focus:outline-none focus:border-emerald-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-emerald-500/20 dark:focus:ring-blue-400/20 transition-all duration-200 disabled:opacity-50"
+                        aria-invalid={!!errors.customBudget}
+                        aria-describedby={errors.customBudget ? "customBudget-error" : undefined}
+                      />
+                    </div>
+                    {errors.customBudget && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <AlertCircle size={16} className="text-red-500" />
+                        <p className="text-sm text-red-600 dark:text-red-400">
+                          {errors.customBudget}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="negotiable"
+                      checked={formData.negotiable}
                       onChange={handleInputChange}
                       disabled={isSubmitting}
-                      min="1"
-                      step="1"
-                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-emerald-500 dark:focus:border-blue-400 focus:ring focus:ring-emerald-500/10 dark:focus:ring-blue-400/10 min-h-14 pl-8 disabled:opacity-50"
-                      aria-invalid={!!errors.customBudget}
-                      aria-describedby={errors.customBudget ? "customBudget-error" : undefined}
+                      className="mt-1 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-400 rounded transition-colors disabled:opacity-50"
                     />
-                  </div>
-                  {errors.customBudget && (
-                    <p
-                      id="customBudget-error"
-                      className="text-sm text-red-600 dark:text-red-400 mt-1 animate-pulse"
-                    >
-                      {errors.customBudget}
-                    </p>
-                  )}
+                    <div>
+                      <div className="font-medium text-blue-900 dark:text-blue-100">
+                        💬 Price is negotiable
+                      </div>
+                      <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                        Allow helpers to propose different pricing for your task
+                      </div>
+                    </div>
+                  </label>
                 </div>
-              )}
-
-              <div className="mb-6">
-                <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    name="negotiable"
-                    checked={formData.negotiable}
-                    onChange={handleInputChange}
-                    disabled={isSubmitting}
-                    className="text-emerald-600 focus:ring-emerald-500 dark:focus:ring-blue-400 rounded disabled:opacity-50"
-                  />
-                  <span className="text-gray-900 dark:text-white">
-                    Price is negotiable
-                  </span>
-                </label>
               </div>
             </div>
 
             {/* 4. Additional Details */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6 sm:p-8">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Tag size={20} />
-                4. Additional Details
-              </h2>
-
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                  Requirements (Optional)
-                </label>
-                <textarea
-                  name="requirements"
-                  placeholder="Any specific requirements or tools needed..."
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-emerald-500 dark:focus:border-blue-400 focus:ring focus:ring-emerald-500/10 dark:focus:ring-blue-400/10 min-h-[100px] disabled:opacity-50"
-                  value={formData.requirements}
-                  onChange={handleInputChange}
-                  disabled={isSubmitting}
-                />
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm p-8 hover:shadow-md transition-all duration-200">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
+                  <Tag size={24} className="text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    Additional Details
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Add more context to help find the right helper
+                  </p>
+                </div>
               </div>
 
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                  Add Tags (select all that apply)
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-                  {availableTags.map((tag) => (
-                    <label
-                      key={tag}
-                      className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors duration-200 ${
-                        selectedTags.includes(tag)
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-800 dark:text-emerald-300"
-                          : "hover:bg-gray-100 dark:hover:bg-gray-700"
-                      } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedTags.includes(tag)}
-                        onChange={() => !isSubmitting && handleTagToggle(tag)}
-                        disabled={isSubmitting}
-                        className="text-emerald-600 focus:ring-emerald-500 dark:focus:ring-blue-400 rounded disabled:opacity-50"
-                      />
-                      <span className="text-sm text-gray-900 dark:text-white">
-                        {tag}
-                      </span>
-                    </label>
-                  ))}
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">
+                    Special Requirements or Tools Needed (Optional)
+                  </label>
+                  <textarea
+                    name="requirements"
+                    placeholder="Any specific skills, tools, or requirements? (e.g., 'Must have own transportation', 'Experience with heavy lifting required')"
+                    className="w-full p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-purple-500 dark:focus:border-purple-400 focus:ring-2 focus:ring-purple-500/20 dark:focus:ring-purple-400/20 focus:bg-white dark:focus:bg-gray-700 transition-all duration-200 min-h-[100px] resize-y disabled:opacity-50"
+                    value={formData.requirements}
+                    onChange={handleInputChange}
+                    disabled={isSubmitting}
+                  />
                 </div>
 
-                {selectedTags.length > 0 && (
-                  <div className="mt-4">
-                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Selected Tags ({selectedTags.length}):
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedTags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold"
-                        >
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-4">
+                    Add Tags (Select all that apply)
+                  </label>
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                    {availableTags.map((tag) => (
+                      <label
+                        key={tag}
+                        className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all duration-200 border-2 hover:shadow-sm ${
+                          selectedTags.includes(tag)
+                            ? "bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/30 dark:to-blue-900/30 border-emerald-300 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300 shadow-sm"
+                            : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedTags.includes(tag)}
+                          onChange={() => !isSubmitting && handleTagToggle(tag)}
+                          disabled={isSubmitting}
+                          className="text-emerald-600 focus:ring-emerald-500 dark:focus:ring-emerald-400 rounded transition-colors disabled:opacity-50"
+                        />
+                        <span className="text-sm font-medium text-gray-900 dark:text-white flex-1">
                           {tag}
-                          <button
-                            type="button"
-                            onClick={() => !isSubmitting && handleTagToggle(tag)}
-                            disabled={isSubmitting}
-                            className="ml-1 text-current hover:text-red-600 dark:hover:text-red-400 transition-colors disabled:opacity-50"
-                            aria-label={`Remove ${tag} tag`}
-                          >
-                            <X size={14} />
-                          </button>
                         </span>
-                      ))}
-                    </div>
+                        {selectedTags.includes(tag) && (
+                          <CheckCircle2 size={18} className="text-emerald-500 dark:text-emerald-400" />
+                        )}
+                      </label>
+                    ))}
                   </div>
-                )}
+
+                  {selectedTags.length > 0 && (
+                    <div className="mt-6 bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/20 dark:to-blue-900/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800">
+                      <div className="text-sm font-medium text-emerald-800 dark:text-emerald-300 mb-3 flex items-center gap-2">
+                        <Tag size={16} />
+                        Selected Tags ({selectedTags.length})
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedTags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center px-4 py-2 rounded-full bg-white dark:bg-gray-800 border border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-sm font-medium shadow-sm"
+                          >
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => !isSubmitting && handleTagToggle(tag)}
+                              disabled={isSubmitting}
+                              className="ml-2 text-current hover:text-red-600 dark:hover:text-red-400 transition-colors disabled:opacity-50 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full"
+                              aria-label={`Remove ${tag} tag`}
+                            >
+                              <X size={14} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Submit Button Bar */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-4 sm:static sm:bg-transparent sm:dark:bg-transparent sm:border-0 sm:p-0 sm:mt-6 z-30">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-4 max-w-5xl">
+            <div className="sticky bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-6 sm:static sm:bg-transparent sm:dark:bg-transparent sm:border-0 sm:p-0 z-30 rounded-t-2xl sm:rounded-none shadow-2xl sm:shadow-none">
+              <div className="max-w-4xl mx-auto flex gap-4">
                 <Button
                   variant="secondary"
                   onClick={() => {
@@ -789,7 +958,7 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
                     }
                   }}
                   disabled={isSubmitting}
-                  className="flex-1 min-h-14 sm:min-h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-md px-6 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 h-14 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl px-6 py-3 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >
                   {isSubmitting ? 'Posting...' : 'Cancel'}
                 </Button>
@@ -797,18 +966,17 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
                 <Button
                   type="submit"
                   disabled={isSubmitting || Object.keys(errors).length > 0}
-                  className="flex-1 min-h-14 sm:min-h-10 bg-gradient-to-r from-emerald-500 to-blue-500 dark:from-emerald-600 dark:to-blue-600 text-white font-medium rounded-md px-6 py-3 hover:from-emerald-600 hover:to-blue-600 dark:hover:from-emerald-700 dark:hover:to-blue-700 disabled:from-gray-500 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200"
+                  className="flex-2 h-14 bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500 hover:from-emerald-600 hover:via-blue-600 hover:to-purple-600 text-white font-semibold rounded-xl px-8 py-3 disabled:from-gray-400 disabled:via-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none disabled:shadow-none"
                 >
                   {isSubmitting ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Posting Task...
+                    <span className="flex items-center gap-3">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Creating Your Task...
                     </span>
                   ) : (
-                    'Post Task'
+                    <span className="flex items-center gap-2">
+                      🚀 Post Task
+                    </span>
                   )}
                 </Button>
               </div>
@@ -817,21 +985,36 @@ const PostTaskPage = ({ navigateTo, theme, toggleTheme, isLoggedIn }) => {
             {/* Progress indicator for mobile */}
             <div className="sm:hidden fixed top-0 left-0 right-0 z-50">
               {isSubmitting && (
-                <div className="bg-emerald-500 h-1 animate-pulse"></div>
+                <div className="bg-gradient-to-r from-emerald-500 to-blue-500 h-1 animate-pulse"></div>
               )}
             </div>
           </form>
 
-          {/* Debug info for development (remove in production) */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs">
-              <h3 className="font-semibold mb-2">Debug Info:</h3>
-              <pre className="text-gray-600 dark:text-gray-400">
-                User: {user?.email || 'Not logged in'}
-                {'\n'}Form Errors: {JSON.stringify(errors, null, 2)}
-                {'\n'}Selected Tags: {selectedTags.join(', ') || 'None'}
-                {'\n'}Budget: {formData.budget === 'custom' ? `Custom: ₹${formData.customBudget}` : `₹${formData.budget}`}
-              </pre>
+          {/* Success Preview Card - Shows progress summary */}
+          {(formData.title || formData.description || formData.location) && (
+            <div className="mt-8 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                  <CheckCircle2 size={20} className="text-green-600 dark:text-green-400" />
+                </div>
+                <h3 className="font-semibold text-green-800 dark:text-green-300">
+                  Task Preview
+                </h3>
+              </div>
+              <div className="space-y-2 text-sm">
+                {formData.title && (
+                  <p><span className="font-medium text-green-700 dark:text-green-300">Title:</span> {formData.title}</p>
+                )}
+                {formData.category && (
+                  <p><span className="font-medium text-green-700 dark:text-green-300">Category:</span> {formData.category}</p>
+                )}
+                {formData.location && (
+                  <p><span className="font-medium text-green-700 dark:text-green-300">Location:</span> {formData.location}</p>
+                )}
+                {(formData.budget !== "custom" ? formData.budget : formData.customBudget) && (
+                  <p><span className="font-medium text-green-700 dark:text-green-300">Budget:</span> ₹{formData.budget === "custom" ? formData.customBudget : formData.budget}</p>
+                )}
+              </div>
             </div>
           )}
         </div>
